@@ -1,0 +1,13 @@
+{
+  "name": "full-stack",
+  "description": "All plugins enabled — complete development toolkit",
+  "plugins": [
+    "core",
+    "notifications",
+    "frameworks-frontend",
+    "frameworks-backend",
+    "frameworks-shared",
+    "task-master",
+    "mcp-servers"
+  ]
+}

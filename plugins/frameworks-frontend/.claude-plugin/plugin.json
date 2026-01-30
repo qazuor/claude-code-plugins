@@ -1,0 +1,23 @@
+{
+  "name": "frameworks-frontend",
+  "version": "1.0.0",
+  "description": "Frontend framework agents and skills for React, Next.js, Astro, TanStack, and UI libraries",
+  "author": {
+    "name": "Qazuor",
+    "url": "https://github.com/qazuor"
+  },
+  "repository": "https://github.com/qazuor/claude-code-plugins",
+  "license": "MIT",
+  "keywords": [
+    "frameworks",
+    "frontend",
+    "react",
+    "nextjs",
+    "astro",
+    "tanstack",
+    "shadcn",
+    "zustand",
+    "vercel",
+    "patterns"
+  ]
+}

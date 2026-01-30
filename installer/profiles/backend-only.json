@@ -1,0 +1,11 @@
+{
+  "name": "backend-only",
+  "description": "Core + backend frameworks (NestJS, Hono, Drizzle, Prisma)",
+  "plugins": [
+    "core",
+    "notifications",
+    "frameworks-backend",
+    "frameworks-shared",
+    "task-master"
+  ]
+}

@@ -1,0 +1,11 @@
+{
+  "name": "frontend-only",
+  "description": "Core + frontend frameworks (React, Astro, Next.js, TanStack)",
+  "plugins": [
+    "core",
+    "notifications",
+    "frameworks-frontend",
+    "frameworks-shared",
+    "task-master"
+  ]
+}
