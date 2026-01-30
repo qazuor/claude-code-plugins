@@ -82,7 +82,10 @@ send_desktop_notification() {
                 terminal-notifier -title "Claude Code" -message "$msg"
                 return 0
             elif command -v osascript &>/dev/null; then
-                osascript -e "display notification \"$msg\" with title \"Claude Code\""
+                # Escape message for safe AppleScript interpolation
+                local escaped_msg
+                escaped_msg=$(printf '%s' "$msg" | sed 's/\\/\\\\/g; s/"/\\"/g')
+                osascript -e "display notification \"$escaped_msg\" with title \"Claude Code\""
                 return 0
             fi
             ;;
@@ -94,12 +97,15 @@ send_desktop_notification() {
                     --urgency=normal 2>/dev/null
                 return 0
             elif command -v powershell.exe &>/dev/null; then
+                # Escape message for safe PowerShell interpolation
+                local ps_msg
+                ps_msg=$(printf '%s' "$msg" | sed "s/'/\\\\'/g")
                 powershell.exe -c "
                     [Windows.UI.Notifications.ToastNotificationManager, Windows.UI.Notifications, ContentType = WindowsRuntime] | Out-Null;
                     \$template = [Windows.UI.Notifications.ToastNotificationManager]::GetTemplateContent([Windows.UI.Notifications.ToastTemplateType]::ToastText02);
                     \$textNodes = \$template.GetElementsByTagName('text');
                     \$textNodes.Item(0).AppendChild(\$template.CreateTextNode('Claude Code')) | Out-Null;
-                    \$textNodes.Item(1).AppendChild(\$template.CreateTextNode('$msg')) | Out-Null;
+                    \$textNodes.Item(1).AppendChild(\$template.CreateTextNode('$ps_msg')) | Out-Null;
                     \$toast = [Windows.UI.Notifications.ToastNotification]::new(\$template);
                     [Windows.UI.Notifications.ToastNotificationManager]::CreateToastNotifier('Claude Code').Show(\$toast);
                 " 2>/dev/null
