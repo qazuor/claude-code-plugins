@@ -1,9 +1,16 @@
 {
-  "hooks": [
-    {
-      "event": "SessionStart",
-      "command": "${CLAUDE_PLUGIN_ROOT}/scripts/session-resume.sh",
-      "timeout": 10000
-    }
-  ]
+  "description": "Session context restoration for task management",
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "${CLAUDE_PLUGIN_ROOT}/scripts/session-resume.sh",
+            "timeout": 10
+          }
+        ]
+      }
+    ]
+  }
 }
