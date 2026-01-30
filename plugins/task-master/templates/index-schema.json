@@ -1,0 +1,62 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Task Master Global Index",
+  "description": "Schema for the global task index (index.json)",
+  "type": "object",
+  "required": ["version", "epics", "standalone"],
+  "properties": {
+    "version": {
+      "type": "string",
+      "const": "1.0"
+    },
+    "epics": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["specId", "title", "status", "progress", "path"],
+        "properties": {
+          "specId": {
+            "type": "string",
+            "pattern": "^SPEC-\\d{3}$"
+          },
+          "title": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string",
+            "enum": ["pending", "in-progress", "completed", "cancelled"]
+          },
+          "progress": {
+            "type": "string",
+            "pattern": "^\\d+/\\d+$",
+            "description": "Progress in format completed/total"
+          },
+          "path": {
+            "type": "string",
+            "description": "Relative path to the task state directory"
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    "standalone": {
+      "type": "object",
+      "required": ["path", "total", "completed"],
+      "properties": {
+        "path": {
+          "type": "string"
+        },
+        "total": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "completed": {
+          "type": "integer",
+          "minimum": 0
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  "additionalProperties": false
+}

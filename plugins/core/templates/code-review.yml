@@ -1,0 +1,226 @@
+# Code Review GitHub Action
+# Runs automated code quality checks on pull requests
+#
+# Usage: Place in .github/workflows/code-review.yml
+# Customize the steps and tools based on your project needs
+
+name: Code Review
+
+on:
+  pull_request:
+    branches: [main, develop]
+    types: [opened, synchronize, reopened]
+
+permissions:
+  contents: read
+  pull-requests: write
+  checks: write
+
+concurrency:
+  group: code-review-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '{{NODE_VERSION}}'
+          cache: '{{PACKAGE_MANAGER}}'
+
+      - name: Install dependencies
+        run: {{INSTALL_COMMAND}}
+
+      - name: Run linter
+        run: {{LINT_COMMAND}}
+
+  typecheck:
+    name: Type Check
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '{{NODE_VERSION}}'
+          cache: '{{PACKAGE_MANAGER}}'
+
+      - name: Install dependencies
+        run: {{INSTALL_COMMAND}}
+
+      - name: Run type check
+        run: npx tsc --noEmit
+
+  test:
+    name: Tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '{{NODE_VERSION}}'
+          cache: '{{PACKAGE_MANAGER}}'
+
+      - name: Install dependencies
+        run: {{INSTALL_COMMAND}}
+
+      - name: Run tests with coverage
+        run: {{TEST_COMMAND}} --coverage
+
+      - name: Check coverage threshold
+        run: |
+          # Extract coverage percentage from report
+          # Fail if below 90%
+          COVERAGE=$({{COVERAGE_EXTRACT_COMMAND}})
+          echo "Coverage: ${COVERAGE}%"
+          if (( $(echo "$COVERAGE < 90" | bc -l) )); then
+            echo "Coverage is below 90% threshold"
+            exit 1
+          fi
+        continue-on-error: true
+
+      - name: Upload coverage report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-report
+          path: coverage/
+          retention-days: 7
+
+  build:
+    name: Build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '{{NODE_VERSION}}'
+          cache: '{{PACKAGE_MANAGER}}'
+
+      - name: Install dependencies
+        run: {{INSTALL_COMMAND}}
+
+      - name: Build project
+        run: {{BUILD_COMMAND}}
+
+      - name: Check bundle size
+        run: |
+          # Check that build output is within budget
+          BUILD_SIZE=$(du -sk {{BUILD_OUTPUT_DIR}} | cut -f1)
+          MAX_SIZE={{MAX_BUILD_SIZE_KB}}
+          echo "Build size: ${BUILD_SIZE}KB (budget: ${MAX_SIZE}KB)"
+          if [ "$BUILD_SIZE" -gt "$MAX_SIZE" ]; then
+            echo "Build size exceeds budget!"
+            exit 1
+          fi
+        continue-on-error: true
+
+  code-quality:
+    name: Code Quality
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Check file sizes
+        run: |
+          echo "Checking for files exceeding 500 lines..."
+          LARGE_FILES=$(find src/ -name "*.ts" -o -name "*.tsx" | while read f; do
+            lines=$(wc -l < "$f")
+            if [ "$lines" -gt 500 ]; then
+              echo "$f: $lines lines"
+            fi
+          done)
+
+          if [ -n "$LARGE_FILES" ]; then
+            echo "WARNING: Files exceeding 500 lines:"
+            echo "$LARGE_FILES"
+          else
+            echo "All source files are within the 500-line limit"
+          fi
+
+      - name: Check for console.log statements
+        run: |
+          if grep -rn "console\.log" --include="*.ts" --include="*.tsx" src/ 2>/dev/null | grep -v "// eslint-disable" | grep -v ".test."; then
+            echo "WARNING: console.log statements found in source code"
+          else
+            echo "No console.log statements in source code"
+          fi
+
+      - name: Check for TODO comments
+        run: |
+          echo "TODO comments found:"
+          grep -rn "TODO\|FIXME\|HACK\|XXX" --include="*.ts" --include="*.tsx" src/ 2>/dev/null || echo "No TODO comments found"
+
+  commit-lint:
+    name: Commit Message Lint
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '{{NODE_VERSION}}'
+          cache: '{{PACKAGE_MANAGER}}'
+
+      - name: Install commitlint
+        run: npm install -g @commitlint/cli @commitlint/config-conventional
+
+      - name: Validate commit messages
+        run: |
+          npx commitlint --from ${{ github.event.pull_request.base.sha }} --to ${{ github.event.pull_request.head.sha }}
+        continue-on-error: true
+
+  report:
+    name: Review Summary
+    runs-on: ubuntu-latest
+    needs: [lint, typecheck, test, build, code-quality, commit-lint]
+    if: always()
+    steps:
+      - name: Post summary comment
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const jobs = [
+              { name: 'Lint', status: '${{ needs.lint.result }}' },
+              { name: 'Type Check', status: '${{ needs.typecheck.result }}' },
+              { name: 'Tests', status: '${{ needs.test.result }}' },
+              { name: 'Build', status: '${{ needs.build.result }}' },
+              { name: 'Code Quality', status: '${{ needs.code-quality.result }}' },
+              { name: 'Commit Lint', status: '${{ needs.commit-lint.result }}' },
+            ];
+
+            const statusIcon = (s) => s === 'success' ? '✅' : s === 'skipped' ? '⏭️' : '❌';
+            const allPassed = jobs.every(j => j.status === 'success' || j.status === 'skipped');
+
+            const body = `## Code Review Summary\n\n` +
+              `${allPassed ? '✅ All checks passed!' : '❌ Some checks failed.'}\n\n` +
+              jobs.map(j => `${statusIcon(j.status)} **${j.name}**: ${j.status}`).join('\n') +
+              `\n\n---\n_Automated code review by GitHub Actions_`;
+
+            github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body,
+            });

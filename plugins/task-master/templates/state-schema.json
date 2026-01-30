@@ -1,0 +1,226 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Task Master State",
+  "description": "Schema for task state files (state.json)",
+  "type": "object",
+  "required": ["version", "title", "created", "tasks", "summary"],
+  "properties": {
+    "version": {
+      "type": "string",
+      "const": "1.0",
+      "description": "Schema version"
+    },
+    "specRef": {
+      "type": ["string", "null"],
+      "pattern": "^SPEC-\\d{3}$",
+      "description": "Reference to parent spec ID, null for standalone tasks"
+    },
+    "title": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 200,
+      "description": "Epic or standalone task group title"
+    },
+    "created": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Creation timestamp in ISO 8601 format"
+    },
+    "tasks": {
+      "type": "array",
+      "items": {
+        "$ref": "#/definitions/task"
+      },
+      "description": "Array of tasks"
+    },
+    "summary": {
+      "$ref": "#/definitions/summary"
+    }
+  },
+  "additionalProperties": false,
+  "definitions": {
+    "task": {
+      "type": "object",
+      "required": ["id", "title", "description", "status", "complexity", "blockedBy", "blocks", "subtasks", "tags", "phase", "qualityGate", "timestamps"],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^T-\\d{3}$",
+          "description": "Unique task ID within the state file"
+        },
+        "title": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200,
+          "description": "Brief task title"
+        },
+        "description": {
+          "type": "string",
+          "description": "Detailed task description"
+        },
+        "status": {
+          "type": "string",
+          "enum": ["pending", "in-progress", "completed", "blocked", "cancelled"],
+          "description": "Current task status"
+        },
+        "complexity": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 10,
+          "description": "Complexity score from 1 (trivial) to 10 (very complex)"
+        },
+        "blockedBy": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "pattern": "^T-\\d{3}$"
+          },
+          "description": "Task IDs that must be completed before this task can start"
+        },
+        "blocks": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "pattern": "^T-\\d{3}$"
+          },
+          "description": "Task IDs that depend on this task"
+        },
+        "subtasks": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["title", "completed"],
+            "properties": {
+              "title": {
+                "type": "string"
+              },
+              "completed": {
+                "type": "boolean"
+              }
+            },
+            "additionalProperties": false
+          },
+          "description": "Optional checklist of sub-items within the task"
+        },
+        "tags": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Categorization tags"
+        },
+        "phase": {
+          "type": "string",
+          "enum": ["setup", "core", "integration", "testing", "docs", "cleanup"],
+          "description": "Implementation phase"
+        },
+        "qualityGate": {
+          "$ref": "#/definitions/qualityGate"
+        },
+        "timestamps": {
+          "$ref": "#/definitions/timestamps"
+        }
+      },
+      "additionalProperties": false
+    },
+    "qualityGate": {
+      "type": "object",
+      "required": ["lint", "typecheck", "tests"],
+      "properties": {
+        "lint": {
+          "oneOf": [
+            { "type": "null" },
+            { "$ref": "#/definitions/gateResult" }
+          ]
+        },
+        "typecheck": {
+          "oneOf": [
+            { "type": "null" },
+            { "$ref": "#/definitions/gateResult" }
+          ]
+        },
+        "tests": {
+          "oneOf": [
+            { "type": "null" },
+            { "$ref": "#/definitions/gateResult" }
+          ]
+        }
+      },
+      "additionalProperties": true
+    },
+    "gateResult": {
+      "type": "object",
+      "required": ["status", "timestamp"],
+      "properties": {
+        "status": {
+          "type": "string",
+          "enum": ["pass", "fail"]
+        },
+        "timestamp": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "details": {
+          "type": "string"
+        },
+        "coverage": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 100
+        }
+      },
+      "additionalProperties": false
+    },
+    "timestamps": {
+      "type": "object",
+      "required": ["created"],
+      "properties": {
+        "created": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "started": {
+          "type": ["string", "null"],
+          "format": "date-time"
+        },
+        "completed": {
+          "type": ["string", "null"],
+          "format": "date-time"
+        }
+      },
+      "additionalProperties": false
+    },
+    "summary": {
+      "type": "object",
+      "required": ["total", "pending", "inProgress", "completed", "blocked", "averageComplexity"],
+      "properties": {
+        "total": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "pending": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "inProgress": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "completed": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "blocked": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "averageComplexity": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 10
+        }
+      },
+      "additionalProperties": false
+    }
+  }
+}

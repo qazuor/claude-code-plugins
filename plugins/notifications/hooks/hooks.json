@@ -1,0 +1,19 @@
+{
+  "hooks": [
+    {
+      "event": "Notification",
+      "command": "${CLAUDE_PLUGIN_ROOT}/scripts/on-notification.sh",
+      "timeout": 10000
+    },
+    {
+      "event": "Stop",
+      "command": "${CLAUDE_PLUGIN_ROOT}/scripts/stop-beep.sh",
+      "timeout": 5000
+    },
+    {
+      "event": "SubagentStop",
+      "command": "${CLAUDE_PLUGIN_ROOT}/scripts/subagent-beep.sh",
+      "timeout": 5000
+    }
+  ]
+}

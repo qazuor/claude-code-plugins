@@ -1,0 +1,47 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Task Master Specs Index",
+  "description": "Schema for the specifications index (.claude/specs/index.json)",
+  "type": "object",
+  "required": ["version", "specs"],
+  "properties": {
+    "version": {
+      "type": "string",
+      "const": "1.0"
+    },
+    "specs": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["specId", "title", "status", "complexity", "path", "created"],
+        "properties": {
+          "specId": {
+            "type": "string",
+            "pattern": "^SPEC-\\d{3}$"
+          },
+          "title": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string",
+            "enum": ["draft", "approved", "in-progress", "completed", "cancelled"]
+          },
+          "complexity": {
+            "type": "string",
+            "enum": ["low", "medium", "high"]
+          },
+          "path": {
+            "type": "string",
+            "description": "Relative path to the spec directory"
+          },
+          "created": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "additionalProperties": false
+      }
+    }
+  },
+  "additionalProperties": false
+}

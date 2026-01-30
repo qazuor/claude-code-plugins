@@ -1,0 +1,62 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Task Master Spec Metadata",
+  "description": "Schema for specification metadata files (metadata.json)",
+  "type": "object",
+  "required": ["specId", "title", "type", "complexity", "status", "created"],
+  "properties": {
+    "specId": {
+      "type": "string",
+      "pattern": "^SPEC-\\d{3}$",
+      "description": "Unique specification ID"
+    },
+    "title": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 200,
+      "description": "Specification title"
+    },
+    "type": {
+      "type": "string",
+      "enum": ["feature", "bugfix", "refactor", "improvement", "infrastructure", "documentation"],
+      "description": "Type of work being specified"
+    },
+    "complexity": {
+      "type": "string",
+      "enum": ["low", "medium", "high"],
+      "description": "Overall complexity assessment"
+    },
+    "status": {
+      "type": "string",
+      "enum": ["draft", "approved", "in-progress", "completed", "cancelled"],
+      "description": "Current spec status"
+    },
+    "created": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Creation timestamp"
+    },
+    "approved": {
+      "type": ["string", "null"],
+      "format": "date-time",
+      "description": "Approval timestamp"
+    },
+    "completed": {
+      "type": ["string", "null"],
+      "format": "date-time",
+      "description": "Completion timestamp"
+    },
+    "planFileRef": {
+      "type": ["string", "null"],
+      "description": "Reference to the Plan Mode file that originated this spec"
+    },
+    "tags": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "Categorization tags for overlap detection and filtering"
+    }
+  },
+  "additionalProperties": false
+}

@@ -1,0 +1,22 @@
+{
+  "name": "core",
+  "version": "1.0.0",
+  "description": "Universal agents, commands, skills, docs, and templates for any software project",
+  "author": {
+    "name": "Qazuor",
+    "url": "https://github.com/qazuor"
+  },
+  "repository": "https://github.com/qazuor/claude-code-plugins",
+  "license": "MIT",
+  "keywords": [
+    "agents",
+    "commands",
+    "skills",
+    "quality",
+    "testing",
+    "security",
+    "performance",
+    "accessibility",
+    "standards"
+  ]
+}

@@ -1,0 +1,20 @@
+{
+  "name": "mcp-servers",
+  "version": "1.0.0",
+  "description": "Pre-configured MCP server definitions for 30 services including databases, APIs, browser testing, and more",
+  "author": {
+    "name": "Qazuor",
+    "url": "https://github.com/qazuor"
+  },
+  "repository": "https://github.com/qazuor/claude-code-plugins",
+  "license": "MIT",
+  "keywords": [
+    "mcp",
+    "servers",
+    "integrations",
+    "database",
+    "browser",
+    "github",
+    "vercel"
+  ]
+}

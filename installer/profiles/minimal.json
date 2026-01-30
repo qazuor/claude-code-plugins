@@ -1,0 +1,8 @@
+{
+  "name": "minimal",
+  "description": "Core essentials and notifications only",
+  "plugins": [
+    "core",
+    "notifications"
+  ]
+}

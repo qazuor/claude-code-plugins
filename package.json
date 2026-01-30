@@ -1,0 +1,28 @@
+{
+  "name": "@qazuor/claude-code-plugins",
+  "version": "1.0.0",
+  "description": "Marketplace of Claude Code plugins — agents, commands, skills, hooks, templates, and MCP server configurations",
+  "author": {
+    "name": "Qazuor",
+    "url": "https://github.com/qazuor"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/qazuor/claude-code-plugins.git"
+  },
+  "license": "MIT",
+  "keywords": [
+    "claude-code",
+    "plugins",
+    "agents",
+    "skills",
+    "commands",
+    "mcp-servers",
+    "marketplace"
+  ],
+  "scripts": {
+    "install-plugins": "./installer/install.sh",
+    "uninstall-plugins": "./installer/uninstall.sh",
+    "update-plugins": "./installer/update.sh"
+  }
+}

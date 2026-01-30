@@ -1,0 +1,20 @@
+{
+  "name": "task-master",
+  "version": "1.0.0",
+  "description": "End-to-end project planning with specs, task decomposition, dependency graphs, and quality gates",
+  "author": {
+    "name": "Qazuor",
+    "url": "https://github.com/qazuor"
+  },
+  "repository": "https://github.com/qazuor/claude-code-plugins",
+  "license": "MIT",
+  "keywords": [
+    "planning",
+    "specs",
+    "tasks",
+    "dependencies",
+    "quality-gates",
+    "complexity-scoring",
+    "task-management"
+  ]
+}
