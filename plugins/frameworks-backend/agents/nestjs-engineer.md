@@ -5,8 +5,7 @@ description:
   injection, guards, pipes, interceptors, and testing with @nestjs/testing
 tools: Read, Write, Edit, Glob, Grep, Bash, mcp__context7__resolve-library-id, mcp__context7__query-docs
 model: sonnet
-related_skills:
-  - frameworks/nestjs-patterns
+skills: nestjs-patterns
 ---
 
 # NestJS Engineer Agent

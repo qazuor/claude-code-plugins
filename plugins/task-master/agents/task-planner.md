@@ -3,12 +3,6 @@ name: task-planner
 description: Decomposes specifications into implementable atomic tasks with dependencies, phases, and complexity scoring
 tools: Read, Write, Edit, Glob, Grep, Bash
 model: sonnet
-capabilities:
-  - Break features into atomic implementable tasks
-  - Establish task dependencies and ordering
-  - Assign implementation phases
-  - Identify parallel execution tracks
-  - Compute critical path for optimal execution
 ---
 
 # Task Planner Agent

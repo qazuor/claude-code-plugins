@@ -6,15 +6,6 @@ description:
   manages CI/CD, and oversees deployments across all phases
 tools: Read, Write, Edit, Glob, Grep, Bash, Task
 model: sonnet
-responsibilities:
-  - Architectural validation and pattern enforcement
-  - Backend and frontend code review
-  - Security audits and vulnerability assessment
-  - Performance optimization and monitoring
-  - Deployment strategies and infrastructure
-  - CI/CD pipelines and automation
-  - Technical coordination and decision making
-  - Risk management and quality assurance
 ---
 
 # Tech Lead Agent

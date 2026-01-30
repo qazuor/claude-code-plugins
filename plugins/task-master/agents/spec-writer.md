@@ -3,12 +3,6 @@ name: spec-writer
 description: Generates functional specifications with user stories, BDD acceptance criteria, UX considerations, and scope definition
 tools: Read, Write, Edit, Glob, Grep, Bash
 model: sonnet
-capabilities:
-  - Write user stories in standard format (As a / I want / So that)
-  - Create BDD acceptance criteria (Given / When / Then)
-  - Define UX considerations and edge cases
-  - Identify out-of-scope items
-  - Analyze user needs and translate to formal requirements
 ---
 
 # Spec Writer Agent

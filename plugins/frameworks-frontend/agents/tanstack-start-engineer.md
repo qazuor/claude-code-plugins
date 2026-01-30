@@ -5,8 +5,7 @@ description:
   file-based routing, loaders, server functions, and type-safe navigation
 tools: Read, Write, Edit, Glob, Grep, Bash, mcp__context7__resolve-library-id, mcp__context7__query-docs
 model: sonnet
-related_skills:
-  - frameworks/tanstack-start-patterns
+skills: tanstack-patterns
 ---
 
 # TanStack Start Engineer Agent

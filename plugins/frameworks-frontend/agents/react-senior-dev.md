@@ -5,8 +5,7 @@ description:
   Server Components, Suspense boundaries, and performance optimization
 tools: Read, Write, Edit, Glob, Grep, Bash, mcp__context7__resolve-library-id, mcp__context7__query-docs
 model: sonnet
-related_skills:
-  - frameworks/react-patterns
+skills: react-patterns
 ---
 
 # React Senior Developer Agent

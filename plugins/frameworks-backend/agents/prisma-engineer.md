@@ -5,8 +5,7 @@ description:
   relations, middleware, and seeding using Prisma ORM
 tools: Read, Write, Edit, Glob, Grep, Bash, mcp__context7__resolve-library-id, mcp__context7__query-docs
 model: sonnet
-related_skills:
-  - frameworks/prisma-patterns
+skills: prisma-patterns
 ---
 
 # Prisma ORM Engineer Agent

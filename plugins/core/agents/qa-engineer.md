@@ -5,14 +5,6 @@ description:
   features meet standards during Phase 3 Validation
 tools: Read, Write, Edit, Glob, Grep, Bash
 model: sonnet
-responsibilities:
-  - Create comprehensive test plans for features
-  - Define test cases and scenarios covering happy paths and edge cases
-  - Execute manual and automated test suites
-  - Validate acceptance criteria from PDR documents
-  - Track quality metrics and report on coverage
-  - Manage bug reporting and verification
-  - Enforce quality gates before releases
 ---
 
 # QA Engineer Agent

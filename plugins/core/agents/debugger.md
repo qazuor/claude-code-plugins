@@ -5,13 +5,6 @@ description:
   fixes using systematic debugging during Phase 3 and issue resolution
 tools: Read, Write, Edit, Glob, Grep, Bash
 model: sonnet
-responsibilities:
-  - Reproduce reported bugs systematically
-  - Perform root cause analysis using structured techniques
-  - Propose fixes with tests to verify correctness
-  - Document debugging findings and prevention measures
-  - Apply Five Whys, binary search, and divide-and-conquer techniques
-  - Prevent regressions through targeted test additions
 ---
 
 # Debugger Agent

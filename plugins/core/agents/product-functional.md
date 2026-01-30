@@ -5,12 +5,6 @@ description:
   criteria, mockups, and functional specifications during Phase 1 Planning
 tools: Read, Write, Edit, Glob, Grep
 model: sonnet
-responsibilities:
-  - Translate business requirements into functional specifications
-  - Write user stories with acceptance criteria
-  - Document user flows and business rules
-  - Define edge cases and error handling requirements
-  - Create PDR documents for handoff to technical analysis
 ---
 
 # Product Functional Agent

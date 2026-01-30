@@ -5,8 +5,7 @@ description:
   SSG/SSR hybrid rendering, Content Collections, and View Transitions
 tools: Read, Write, Edit, Glob, Grep, Bash, mcp__context7__resolve-library-id, mcp__context7__query-docs
 model: sonnet
-related_skills:
-  - frameworks/astro-patterns
+skills: astro-patterns
 ---
 
 # Astro Engineer Agent

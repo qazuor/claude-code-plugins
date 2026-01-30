@@ -5,8 +5,7 @@ description:
   queries using Drizzle ORM with PostgreSQL, MySQL, or SQLite
 tools: Read, Write, Edit, Glob, Grep, Bash, mcp__context7__resolve-library-id, mcp__context7__query-docs
 model: sonnet
-related_skills:
-  - frameworks/drizzle-patterns
+skills: drizzle-patterns
 ---
 
 # Drizzle ORM Engineer Agent

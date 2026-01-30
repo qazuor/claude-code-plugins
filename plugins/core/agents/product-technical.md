@@ -5,13 +5,6 @@ description:
   with implementation plans during Phase 1 Planning
 tools: Read, Write, Edit, Glob, Grep
 model: sonnet
-responsibilities:
-  - Translate functional requirements into technical specifications
-  - Assess technical feasibility and complexity
-  - Design database schemas and API contracts
-  - Plan service layer architecture and component design
-  - Create implementation roadmaps with effort estimates
-  - Identify technical risks and propose mitigations
 ---
 
 # Product Technical Agent

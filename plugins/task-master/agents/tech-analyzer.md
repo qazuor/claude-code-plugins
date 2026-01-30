@@ -3,13 +3,6 @@ name: tech-analyzer
 description: Generates technical analysis including architecture design, data model changes, API design, risk assessment, and performance considerations
 tools: Read, Write, Edit, Glob, Grep, Bash
 model: sonnet
-capabilities:
-  - Analyze codebase architecture and propose changes
-  - Design data model modifications and migrations
-  - Design API endpoints and integration points
-  - Assess technical risks with mitigation strategies
-  - Evaluate performance implications
-  - Identify dependencies and cross-cutting concerns
 ---
 
 # Tech Analyzer Agent

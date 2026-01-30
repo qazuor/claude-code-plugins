@@ -5,8 +5,7 @@ description:
   middleware composition, zValidator, and consistent error handling
 tools: Read, Write, Edit, Glob, Grep, Bash, mcp__context7__resolve-library-id, mcp__context7__query-docs
 model: sonnet
-related_skills:
-  - frameworks/hono-patterns
+skills: hono-patterns
 ---
 
 # Hono API Engineer Agent

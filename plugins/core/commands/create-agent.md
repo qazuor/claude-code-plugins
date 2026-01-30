@@ -98,10 +98,6 @@ name: {agent-name}
 description: {One-line description of when to invoke this agent}
 tools: {comma-separated list of allowed tools}
 model: {sonnet|opus|haiku|inherit}
-responsibilities:
-  - {Primary responsibility 1}
-  - {Primary responsibility 2}
-  - {Primary responsibility 3}
 ---
 ```
 
@@ -330,10 +326,6 @@ name: {agent-name}
 description: {description}
 tools: Read, Write, Edit, Glob, Grep, Bash
 model: sonnet
-responsibilities:
-  - {responsibility-1}
-  - {responsibility-2}
-  - {responsibility-3}
 ---
 
 # {Agent Name} Agent

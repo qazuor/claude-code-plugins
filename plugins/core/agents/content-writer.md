@@ -5,8 +5,6 @@ description:
   approachable tone for customer-facing pages during content creation phases
 tools: Read, Write, Edit, Glob, Grep
 model: sonnet
-responsibilities:
-  - Write compelling web copy for landing pages, product descriptions, and
     marketing materials
   - Create user-centric microcopy for UI elements, CTAs, and error messages
   - Ensure brand voice consistency across all customer touchpoints
