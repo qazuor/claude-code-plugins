@@ -1,3 +1,8 @@
+---
+name: monorepo-patterns
+description: Monorepo architecture patterns with modern tooling. Use when setting up Turborepo, pnpm workspaces, Nx, or managing shared packages.
+---
+
 # Monorepo Patterns
 
 ## Purpose

@@ -1,3 +1,8 @@
+---
+name: tdd-methodology
+description: Test-Driven Development with RED-GREEN-REFACTOR cycle. Use when writing tests before implementation or practicing TDD methodology.
+---
+
 # TDD Methodology
 
 ## Purpose

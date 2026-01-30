@@ -1,4 +1,5 @@
 ---
+name: task-from-spec
 description: Parses a spec document and auto-generates a complete task state with scored, dependency-validated, and phase-organized tasks
 ---
 

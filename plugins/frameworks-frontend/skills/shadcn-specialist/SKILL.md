@@ -1,3 +1,8 @@
+---
+name: shadcn-specialist
+description: Shadcn UI component patterns for theming, variants, and accessibility. Use when implementing shadcn/ui components, cva variants, or dark mode.
+---
+
 # Shadcn UI Specialist
 
 ## Purpose

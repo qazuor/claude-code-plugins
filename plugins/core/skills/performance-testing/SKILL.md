@@ -1,3 +1,8 @@
+---
+name: performance-testing
+description: Performance testing methodology across all application layers. Use when benchmarking, validating performance budgets, or measuring optimization impact.
+---
+
 # Performance Testing
 
 ## Purpose

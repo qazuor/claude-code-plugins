@@ -1,3 +1,8 @@
+---
+name: zod-patterns
+description: Zod validation patterns and schema definitions. Use when implementing validation, type inference, custom validators, or form/API integration with Zod.
+---
+
 # Zod Patterns
 
 ## Purpose

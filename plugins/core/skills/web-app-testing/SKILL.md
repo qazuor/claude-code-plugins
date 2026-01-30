@@ -1,3 +1,8 @@
+---
+name: web-app-testing
+description: Web application testing strategy covering unit, integration, component, E2E, and accessibility tests. Use when building test suites for web apps.
+---
+
 # Web Application Testing
 
 ## Purpose

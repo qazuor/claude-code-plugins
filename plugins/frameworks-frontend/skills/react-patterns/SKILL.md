@@ -1,3 +1,8 @@
+---
+name: react-patterns
+description: React component and hook patterns. Use when building functional components, custom hooks, compound components, or handling code splitting and error boundaries.
+---
+
 # React Patterns
 
 ## Purpose

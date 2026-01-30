@@ -1,3 +1,8 @@
+---
+name: frontend-design
+description: Pre-coding design process and aesthetic principles. Use when designing UIs, working with typography, color theory, motion design, or design tokens.
+---
+
 # Frontend Design
 
 ## Purpose

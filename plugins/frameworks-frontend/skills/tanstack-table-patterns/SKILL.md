@@ -1,3 +1,8 @@
+---
+name: tanstack-table-patterns
+description: TanStack Table patterns for headless, type-safe tables. Use when building sortable, filterable, paginated tables with column definitions.
+---
+
 # TanStack Table Patterns
 
 ## Purpose

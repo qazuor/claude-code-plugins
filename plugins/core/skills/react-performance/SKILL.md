@@ -1,3 +1,8 @@
+---
+name: react-performance
+description: React performance optimization rules prioritized by impact. Use when optimizing re-renders, bundle size, lazy loading, or profiling React apps.
+---
+
 # React Performance
 
 ## Purpose

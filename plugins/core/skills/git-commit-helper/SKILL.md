@@ -1,3 +1,8 @@
+---
+name: git-commit-helper
+description: Conventional commit message generation. Use when creating commit messages, analyzing changed files, or formatting git commands.
+---
+
 # Git Commit Helper
 
 ## Purpose

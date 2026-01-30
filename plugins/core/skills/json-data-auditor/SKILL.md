@@ -1,3 +1,8 @@
+---
+name: json-data-auditor
+description: JSON data validation, audit, and quality scoring. Use when reviewing API responses, configuration files, data exports, or schema compliance.
+---
+
 # JSON Data Auditor
 
 ## Purpose

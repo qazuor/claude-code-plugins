@@ -1,3 +1,8 @@
+---
+name: tanstack-query-patterns
+description: TanStack Query patterns for data fetching and server state. Use when implementing queries, mutations, cache invalidation, or optimistic updates.
+---
+
 # TanStack Query Patterns
 
 ## Purpose

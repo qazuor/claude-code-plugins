@@ -1,3 +1,8 @@
+---
+name: api-app-testing
+description: API endpoint testing methodology. Use when writing tests for REST APIs, validating error handling, schema validation, and authentication.
+---
+
 # API Application Testing
 
 ## Purpose

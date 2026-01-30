@@ -1,3 +1,8 @@
+---
+name: nestjs-patterns
+description: NestJS patterns for modules, DI, guards, pipes, and interceptors. Use when building scalable server-side applications with NestJS.
+---
+
 # NestJS Patterns
 
 ## Purpose

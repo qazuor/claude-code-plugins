@@ -1,3 +1,8 @@
+---
+name: nextjs-patterns
+description: Next.js App Router patterns for Server/Client Components, data fetching, caching, and server actions. Use when building Next.js applications.
+---
+
 # Next.js App Router Patterns
 
 ## Purpose

@@ -1,3 +1,8 @@
+---
+name: tanstack-patterns
+description: TanStack ecosystem overview and shared patterns. Use when working with TanStack libraries or understanding headless UI architecture.
+---
+
 # TanStack Ecosystem Patterns
 
 ## Purpose

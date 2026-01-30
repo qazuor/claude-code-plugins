@@ -1,3 +1,8 @@
+---
+name: tech-writing
+description: Documentation patterns for software projects. Use when writing JSDoc, OpenAPI specs, ADRs, READMEs, CHANGELOGs, or API documentation.
+---
+
 # Tech Writing
 
 ## Purpose

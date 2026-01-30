@@ -1,3 +1,8 @@
+---
+name: zustand-patterns
+description: Zustand state management patterns with middleware. Use when creating stores, slice patterns, persist/immer middleware, or computed values.
+---
+
 # Zustand State Management Patterns
 
 ## Purpose

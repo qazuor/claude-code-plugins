@@ -1,3 +1,8 @@
+---
+name: tanstack-router-patterns
+description: TanStack Router patterns for type-safe routing. Use when defining routes, data loaders, search parameters, or authenticated routes.
+---
+
 # TanStack Router Patterns
 
 ## Purpose

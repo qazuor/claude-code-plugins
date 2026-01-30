@@ -1,3 +1,8 @@
+---
+name: markdown-formatter
+description: Markdown formatting rules and automated fixes. Use when formatting documentation, applying linting rules, or ensuring consistent markdown standards.
+---
+
 # Markdown Formatter
 
 ## Purpose

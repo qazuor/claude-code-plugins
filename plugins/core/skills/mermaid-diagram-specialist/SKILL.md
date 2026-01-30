@@ -1,3 +1,8 @@
+---
+name: mermaid-diagram-specialist
+description: Mermaid diagram creation patterns. Use when creating flowcharts, sequence diagrams, ER diagrams, class diagrams, or state diagrams.
+---
+
 # Mermaid Diagram Specialist
 
 ## Purpose

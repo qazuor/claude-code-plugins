@@ -1,3 +1,8 @@
+---
+name: qa-criteria-validator
+description: Acceptance criteria validation patterns. Use when verifying feature implementations against specs, UI/UX compliance, or test coverage requirements.
+---
+
 # QA Criteria Validator
 
 ## Purpose

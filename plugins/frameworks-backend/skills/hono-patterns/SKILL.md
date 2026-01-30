@@ -1,3 +1,8 @@
+---
+name: hono-patterns
+description: Hono web framework patterns for middleware, routes, and validation. Use when building APIs with Hono, zValidator, or factory-based CRUD.
+---
+
 # Hono Framework Patterns
 
 ## Purpose

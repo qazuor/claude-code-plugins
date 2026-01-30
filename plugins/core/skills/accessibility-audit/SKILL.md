@@ -1,3 +1,8 @@
+---
+name: accessibility-audit
+description: WCAG 2.1 AA accessibility audit patterns. Use when conducting accessibility reviews, ensuring inclusive UX, or auditing ARIA and keyboard navigation compliance.
+---
+
 # Accessibility Audit
 
 ## Purpose

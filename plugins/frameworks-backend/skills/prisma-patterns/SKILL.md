@@ -1,3 +1,8 @@
+---
+name: prisma-patterns
+description: Prisma patterns for schema design, Client API, migrations, and relations. Use when building database layers with Prisma ORM.
+---
+
 # Prisma ORM Patterns
 
 ## Purpose

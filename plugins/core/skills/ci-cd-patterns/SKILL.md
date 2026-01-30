@@ -1,3 +1,8 @@
+---
+name: ci-cd-patterns
+description: CI/CD pipeline patterns for GitHub Actions. Use when setting up workflows, build caching, matrix builds, or deployment strategies.
+---
+
 # CI/CD Patterns
 
 ## Purpose

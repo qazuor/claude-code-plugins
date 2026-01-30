@@ -1,3 +1,8 @@
+---
+name: performance-audit
+description: Performance audit patterns for database, API, frontend, and Core Web Vitals. Use when identifying bottlenecks or optimizing application performance.
+---
+
 # Performance Audit
 
 ## Purpose

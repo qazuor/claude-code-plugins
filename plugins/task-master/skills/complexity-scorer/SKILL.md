@@ -1,4 +1,5 @@
 ---
+name: complexity-scorer
 description: Analyzes tasks and assigns complexity scores (1-10) based on files affected, dependencies, testing needs, risk level, and architectural impact
 ---
 

@@ -1,3 +1,8 @@
+---
+name: env-validation
+description: Environment variable validation and typing patterns. Use when managing .env files, ensuring type-safe env access, or catching missing variables at startup.
+---
+
 # Environment Variable Validation
 
 ## Purpose

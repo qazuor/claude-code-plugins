@@ -1,4 +1,5 @@
 ---
+name: dependency-grapher
 description: Computes dependency graphs for task sets, validates for cycles, identifies critical paths, parallel tracks, and execution levels
 ---
 

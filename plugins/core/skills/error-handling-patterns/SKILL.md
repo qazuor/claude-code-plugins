@@ -1,3 +1,8 @@
+---
+name: error-handling-patterns
+description: Standardized error handling patterns for all application layers. Use when designing error hierarchies, recovery strategies, or error boundaries.
+---
+
 # Error Handling Patterns
 
 ## Purpose

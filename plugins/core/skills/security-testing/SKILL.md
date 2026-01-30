@@ -1,3 +1,8 @@
+---
+name: security-testing
+description: Security testing methodology for authentication, authorization, and injection prevention. Use when validating security measures or testing OWASP compliance.
+---
+
 # Security Testing
 
 ## Purpose

@@ -1,3 +1,8 @@
+---
+name: astro-patterns
+description: Astro patterns for island architecture, routing, content collections, and SSR/SSG. Use when building content-driven websites with Astro.
+---
+
 # Astro Framework Patterns
 
 ## Purpose

@@ -1,3 +1,8 @@
+---
+name: docker-patterns
+description: Docker containerization patterns. Use when writing Dockerfiles, multi-stage builds, docker-compose, or container security hardening.
+---
+
 # Docker Patterns
 
 ## Purpose

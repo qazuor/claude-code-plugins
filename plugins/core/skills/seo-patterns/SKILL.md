@@ -1,3 +1,8 @@
+---
+name: seo-patterns
+description: SEO optimization patterns for web applications. Use when adding structured data, meta tags, Open Graph, sitemaps, or optimizing Core Web Vitals.
+---
+
 # SEO Patterns
 
 ## Purpose

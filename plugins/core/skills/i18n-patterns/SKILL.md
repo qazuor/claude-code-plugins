@@ -1,3 +1,8 @@
+---
+name: i18n-patterns
+description: Internationalization and localization patterns. Use when adding multi-language support, RTL layouts, pluralization, or number/date formatting.
+---
+
 # i18n Patterns
 
 ## Purpose

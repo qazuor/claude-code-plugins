@@ -1,3 +1,8 @@
+---
+name: github-actions-patterns
+description: GitHub Actions CI/CD patterns. Use when creating workflows, matrix builds, caching strategies, or deployment pipelines.
+---
+
 # GitHub Actions Patterns
 
 ## Purpose

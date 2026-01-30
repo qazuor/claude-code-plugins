@@ -1,4 +1,5 @@
 ---
+name: task-atomizer
 description: Breaks a feature or large task into atomic, independently completable sub-tasks organized by implementation phase and layer
 ---
 

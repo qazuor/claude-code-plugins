@@ -1,4 +1,5 @@
 ---
+name: spec-generator
 description: Takes Plan Mode analysis output and generates formal spec documents with proper IDs, metadata, and template-based content
 ---
 

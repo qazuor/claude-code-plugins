@@ -1,4 +1,5 @@
 ---
+name: quality-gate
 description: Runs lint, typecheck, and test quality checks before marking a task as completed, updating state and regenerating progress reports
 ---
 

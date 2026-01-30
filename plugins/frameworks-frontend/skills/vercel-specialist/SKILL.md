@@ -1,3 +1,8 @@
+---
+name: vercel-specialist
+description: Vercel deployment and optimization patterns. Use when deploying to Vercel, configuring edge functions, ISR, or build optimization.
+---
+
 # Vercel Deployment Specialist
 
 ## Purpose

@@ -1,3 +1,8 @@
+---
+name: security-audit
+description: Security audit patterns for OWASP Top 10 compliance. Use when conducting security reviews, penetration testing, or auditing authentication and data protection.
+---
+
 # Security Audit
 
 ## Purpose

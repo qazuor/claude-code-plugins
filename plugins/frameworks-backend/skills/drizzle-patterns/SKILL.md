@@ -1,3 +1,8 @@
+---
+name: drizzle-patterns
+description: Drizzle ORM patterns for schema, relations, queries, and migrations. Use when building database layers with Drizzle on PostgreSQL.
+---
+
 # Drizzle ORM Patterns
 
 ## Purpose

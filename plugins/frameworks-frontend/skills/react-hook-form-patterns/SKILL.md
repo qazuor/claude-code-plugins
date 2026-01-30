@@ -1,3 +1,8 @@
+---
+name: react-hook-form-patterns
+description: React Hook Form patterns with Zod validation. Use when building forms with field arrays, controlled components, file uploads, or async validation.
+---
+
 # React Hook Form Patterns
 
 ## Purpose

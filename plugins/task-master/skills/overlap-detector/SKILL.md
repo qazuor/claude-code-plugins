@@ -1,4 +1,5 @@
 ---
+name: overlap-detector
 description: Detects overlaps between a new requirement and existing specs/tasks to prevent duplicate work and identify related efforts
 ---
 
