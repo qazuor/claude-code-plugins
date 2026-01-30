@@ -1,0 +1,181 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  json-validation:
+    name: Validate JSON files
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Validate plugin.json manifests
+        run: |
+          echo "Validating plugin.json files..."
+          errors=0
+          for f in plugins/*/.claude-plugin/plugin.json; do
+            if ! jq empty "$f" 2>/dev/null; then
+              echo "::error file=$f::Invalid JSON"
+              errors=$((errors + 1))
+            else
+              echo "✓ $f"
+            fi
+          done
+          if [ "$errors" -gt 0 ]; then
+            echo "::error::$errors JSON file(s) failed validation"
+            exit 1
+          fi
+
+      - name: Validate profile JSON files
+        run: |
+          echo "Validating profile files..."
+          errors=0
+          for f in installer/profiles/*.json; do
+            if ! jq empty "$f" 2>/dev/null; then
+              echo "::error file=$f::Invalid JSON"
+              errors=$((errors + 1))
+            else
+              echo "✓ $f"
+            fi
+          done
+          if [ "$errors" -gt 0 ]; then
+            echo "::error::$errors profile(s) failed validation"
+            exit 1
+          fi
+
+      - name: Validate other JSON files
+        run: |
+          echo "Validating other JSON files..."
+          errors=0
+          for f in package.json plugins/*/hooks/*.json plugins/*/.mcp.json; do
+            [ -f "$f" ] || continue
+            if ! jq empty "$f" 2>/dev/null; then
+              echo "::error file=$f::Invalid JSON"
+              errors=$((errors + 1))
+            else
+              echo "✓ $f"
+            fi
+          done
+          if [ "$errors" -gt 0 ]; then
+            echo "::error::$errors JSON file(s) failed validation"
+            exit 1
+          fi
+
+  shellcheck:
+    name: Lint shell scripts
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install ShellCheck
+        run: sudo apt-get install -y shellcheck
+
+      - name: Run ShellCheck
+        run: |
+          echo "Running ShellCheck on all .sh files..."
+          errors=0
+          while IFS= read -r f; do
+            if ! shellcheck -x "$f"; then
+              errors=$((errors + 1))
+            fi
+          done < <(find . -name "*.sh" -type f)
+          if [ "$errors" -gt 0 ]; then
+            echo "::error::$errors script(s) failed ShellCheck"
+            exit 1
+          fi
+
+  profile-verification:
+    name: Verify profiles reference existing plugins
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check profile plugin references
+        run: |
+          echo "Verifying profile plugin references..."
+          errors=0
+          available_plugins=$(ls -d plugins/*/ | xargs -I{} basename {})
+          for profile in installer/profiles/*.json; do
+            profile_name=$(basename "$profile")
+            echo "Checking $profile_name..."
+            plugins=$(jq -r '.plugins[]' "$profile")
+            for plugin in $plugins; do
+              if ! echo "$available_plugins" | grep -qx "$plugin"; then
+                echo "::error file=$profile::Plugin '$plugin' referenced in $profile_name does not exist"
+                errors=$((errors + 1))
+              else
+                echo "  ✓ $plugin"
+              fi
+            done
+          done
+          if [ "$errors" -gt 0 ]; then
+            echo "::error::$errors plugin reference(s) are invalid"
+            exit 1
+          fi
+
+  markdownlint:
+    name: Lint Markdown files
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Install markdownlint-cli
+        run: npm install -g markdownlint-cli
+
+      - name: Run markdownlint
+        run: |
+          markdownlint '**/*.md' --config .markdownlint.json
+
+  plugin-structure:
+    name: Verify plugin structure
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check plugin directories have plugin.json
+        run: |
+          echo "Checking plugin structure..."
+          errors=0
+          for dir in plugins/*/; do
+            plugin_name=$(basename "$dir")
+            manifest="$dir.claude-plugin/plugin.json"
+            if [ ! -f "$manifest" ]; then
+              echo "::error::Plugin '$plugin_name' is missing .claude-plugin/plugin.json"
+              errors=$((errors + 1))
+            else
+              echo "✓ $plugin_name has plugin.json"
+            fi
+          done
+          if [ "$errors" -gt 0 ]; then
+            echo "::error::$errors plugin(s) missing manifest"
+            exit 1
+          fi
+
+      - name: Check plugin name matches directory
+        run: |
+          echo "Checking plugin names match directories..."
+          errors=0
+          for dir in plugins/*/; do
+            plugin_dir=$(basename "$dir")
+            manifest="$dir.claude-plugin/plugin.json"
+            [ -f "$manifest" ] || continue
+            manifest_name=$(jq -r '.name' "$manifest")
+            if [ "$manifest_name" != "$plugin_dir" ]; then
+              echo "::error file=$manifest::Plugin name '$manifest_name' does not match directory '$plugin_dir'"
+              errors=$((errors + 1))
+            else
+              echo "✓ $plugin_dir name matches manifest"
+            fi
+          done
+          if [ "$errors" -gt 0 ]; then
+            echo "::error::$errors plugin(s) have mismatched names"
+            exit 1
+          fi
