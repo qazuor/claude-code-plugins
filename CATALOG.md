@@ -283,5 +283,5 @@ Complete inventory of all components across all plugins.
 | 26 | brave-search | Web Search | Yes |
 | 27 | notion | Notes/Wiki | Yes |
 | 28 | slack | Messaging | Yes |
-| 29 | redis/upstash | Cache/Queue | Yes |
+| 29 | redis-upstash | Cache/Queue | Yes |
 | 30 | prisma | ORM | No |

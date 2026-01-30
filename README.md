@@ -21,7 +21,7 @@ cd claude-code-plugins
 |--------|-------------|------------|
 | **core** | Universal agents, commands, skills, docs, templates | 74 |
 | **notifications** | Desktop notifications, TTS audio, stop beeps | 6 |
-| **frameworks-frontend** | Frontend framework agents and skills (React, Next.js, Astro, TanStack) | 15 |
+| **frameworks-frontend** | Frontend framework agents and skills (React, Next.js, Astro, TanStack, and UI libraries) | 15 |
 | **frameworks-backend** | Backend framework agents and skills (NestJS, Hono, Drizzle, Prisma) | 8 |
 | **frameworks-shared** | Shared infrastructure skills (Docker, GitHub Actions) | 2 |
 | **task-master** | Planning, specs, task management, quality gates | 24 |
@@ -37,7 +37,7 @@ cd claude-code-plugins
 - `jq` for JSON processing (`sudo apt install jq` or `brew install jq`)
 - Node.js 18+ (for MCP servers)
 
-### Install with a Profile
+### User-Level Install (all projects)
 
 ```bash
 # Full development toolkit (all plugins)
@@ -52,6 +52,21 @@ cd claude-code-plugins
 # Frontend development (Core + frontend frameworks + shared + task-master)
 ./installer/install.sh --profile frontend-only
 ```
+
+### Project-Level Install (single project)
+
+Install plugins only for a specific project instead of globally:
+
+```bash
+# Install into the current project directory
+cd /path/to/your/project
+/path/to/claude-code-plugins/installer/install.sh --profile full-stack --project
+
+# Or specify the project directory explicitly
+./installer/install.sh --profile minimal --project /path/to/your/project
+```
+
+This creates symlinks in the project's `.claude/` directory, merges hooks into `.claude/settings.local.json`, and MCP servers into `.mcp.json`. Only that project will have access to the plugins.
 
 ### Install Specific Plugins
 
@@ -75,7 +90,11 @@ cd claude-code-plugins && git pull
 ### Uninstall
 
 ```bash
+# User-level
 ./installer/uninstall.sh
+
+# Project-level
+./installer/uninstall.sh --project /path/to/your/project
 ```
 
 ## Plugin Details
@@ -196,7 +215,7 @@ End-to-end project planning and task management.
 
 **No API key required:** sequential-thinking, context7, filesystem, git, json, playwright, chrome-devtools, docker, cloudflare-docs, shadcn-ui, drizzle, prisma
 
-**API key required:** perplexity-ask, github, vercel, linear, neon, sentry, brave-search, notion, slack, figma, mercadopago, supabase, socket, browserstack, redis/upstash, @21st-dev/magic
+**API key required:** perplexity-ask, github, vercel, linear, neon, sentry, brave-search, notion, slack, figma, mercadopago, supabase, socket, browserstack, redis-upstash, @21st-dev/magic
 
 **Connection required:** postgres, sqlite
 
