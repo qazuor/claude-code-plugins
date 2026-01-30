@@ -65,6 +65,34 @@ jobs:
             exit 1
           fi
 
+      - name: Validate MCP schema
+        run: |
+          echo "Validating MCP server configuration..."
+          mcp_file="plugins/mcp-servers/.mcp.json"
+          if [ -f "$mcp_file" ]; then
+            # Check that mcpServers key exists and all servers have required fields
+            servers=$(jq -r '.mcpServers | keys[]' "$mcp_file" 2>/dev/null)
+            errors=0
+            for server in $servers; do
+              cmd=$(jq -r ".mcpServers[\"$server\"].command // empty" "$mcp_file")
+              if [ -z "$cmd" ]; then
+                echo "::error file=$mcp_file::Server '$server' missing required 'command' field"
+                errors=$((errors + 1))
+              fi
+              args=$(jq -r ".mcpServers[\"$server\"].args // empty" "$mcp_file")
+              if [ -z "$args" ]; then
+                echo "::error file=$mcp_file::Server '$server' missing required 'args' field"
+                errors=$((errors + 1))
+              fi
+            done
+            if [ "$errors" -gt 0 ]; then
+              echo "::error::$errors MCP server(s) failed validation"
+              exit 1
+            else
+              echo "✓ All MCP servers have required fields"
+            fi
+          fi
+
   shellcheck:
     name: Lint shell scripts
     runs-on: ubuntu-latest
@@ -178,4 +206,135 @@ jobs:
           if [ "$errors" -gt 0 ]; then
             echo "::error::$errors plugin(s) have mismatched names"
             exit 1
+          fi
+
+  skill-format:
+    name: Validate skill format
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check skills have SKILL.md
+        run: |
+          echo "Checking skill directories have SKILL.md..."
+          errors=0
+          for dir in plugins/*/skills/*/; do
+            [ -d "$dir" ] || continue
+            skill_name=$(basename "$dir")
+            if [ ! -f "$dir/SKILL.md" ]; then
+              echo "::error::Skill '$skill_name' is missing SKILL.md"
+              errors=$((errors + 1))
+            else
+              echo "✓ $skill_name has SKILL.md"
+            fi
+          done
+          if [ "$errors" -gt 0 ]; then
+            echo "::error::$errors skill(s) missing SKILL.md"
+            exit 1
+          fi
+
+      - name: Check skills have YAML frontmatter with description
+        run: |
+          echo "Checking skill frontmatter..."
+          errors=0
+          warnings=0
+          for skill_file in plugins/*/skills/*/SKILL.md; do
+            [ -f "$skill_file" ] || continue
+            skill_name=$(basename "$(dirname "$skill_file")")
+
+            # Check for frontmatter (starts with ---)
+            first_line=$(head -n 1 "$skill_file")
+            if [ "$first_line" != "---" ]; then
+              echo "::error file=$skill_file::Skill '$skill_name' is missing YAML frontmatter"
+              errors=$((errors + 1))
+              continue
+            fi
+
+            # Check for closing --- (frontmatter end)
+            closing_line=$(sed -n '2,${/^---$/=;};' "$skill_file" | head -n 1)
+            if [ -z "$closing_line" ]; then
+              echo "::error file=$skill_file::Skill '$skill_name' has unclosed YAML frontmatter"
+              errors=$((errors + 1))
+              continue
+            fi
+
+            # Check for description field
+            frontmatter=$(sed -n "2,$((closing_line - 1))p" "$skill_file")
+            if ! echo "$frontmatter" | grep -q "^description:"; then
+              echo "::warning file=$skill_file::Skill '$skill_name' is missing recommended 'description' field"
+              warnings=$((warnings + 1))
+            fi
+          done
+          echo ""
+          echo "Results: $errors error(s), $warnings warning(s)"
+          if [ "$errors" -gt 0 ]; then
+            echo "::error::$errors skill(s) failed format validation"
+            exit 1
+          fi
+
+      - name: Check skill directory naming convention
+        run: |
+          echo "Checking skill naming conventions..."
+          errors=0
+          for dir in plugins/*/skills/*/; do
+            [ -d "$dir" ] || continue
+            skill_name=$(basename "$dir")
+            if ! echo "$skill_name" | grep -qE '^[a-z0-9]+(-[a-z0-9]+)*$'; then
+              echo "::error::Skill directory '$skill_name' does not follow kebab-case convention"
+              errors=$((errors + 1))
+            fi
+          done
+          if [ "$errors" -gt 0 ]; then
+            echo "::error::$errors skill(s) have invalid naming"
+            exit 1
+          else
+            echo "✓ All skill directories follow kebab-case convention"
+          fi
+
+  agent-format:
+    name: Validate agent format
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check agents have required frontmatter
+        run: |
+          echo "Checking agent frontmatter..."
+          errors=0
+          for agent_file in plugins/*/agents/*.md; do
+            [ -f "$agent_file" ] || continue
+            agent_name=$(basename "$agent_file" .md)
+
+            # Check for frontmatter
+            first_line=$(head -n 1 "$agent_file")
+            if [ "$first_line" != "---" ]; then
+              echo "::error file=$agent_file::Agent '$agent_name' is missing YAML frontmatter"
+              errors=$((errors + 1))
+              continue
+            fi
+
+            # Check for closing ---
+            closing_line=$(sed -n '2,${/^---$/=;};' "$agent_file" | head -n 1)
+            if [ -z "$closing_line" ]; then
+              echo "::error file=$agent_file::Agent '$agent_name' has unclosed YAML frontmatter"
+              errors=$((errors + 1))
+              continue
+            fi
+
+            # Check required fields: name and description
+            frontmatter=$(sed -n "2,$((closing_line - 1))p" "$agent_file")
+            if ! echo "$frontmatter" | grep -q "^name:"; then
+              echo "::error file=$agent_file::Agent '$agent_name' is missing required 'name' field"
+              errors=$((errors + 1))
+            fi
+            if ! echo "$frontmatter" | grep -q "^description:"; then
+              echo "::error file=$agent_file::Agent '$agent_name' is missing required 'description' field"
+              errors=$((errors + 1))
+            fi
+          done
+          if [ "$errors" -gt 0 ]; then
+            echo "::error::$errors agent(s) failed format validation"
+            exit 1
+          else
+            echo "✓ All agents have valid frontmatter"
           fi

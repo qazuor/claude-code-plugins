@@ -1,0 +1,58 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "MCP Servers Configuration",
+  "description": "Schema for Claude Code MCP server definitions",
+  "type": "object",
+  "properties": {
+    "$schema": {
+      "type": "string",
+      "description": "JSON Schema reference"
+    },
+    "version": {
+      "type": "string",
+      "description": "Configuration version",
+      "pattern": "^\\d+\\.\\d+\\.\\d+$"
+    },
+    "description": {
+      "type": "string",
+      "description": "Description of this MCP configuration"
+    },
+    "mcpServers": {
+      "type": "object",
+      "description": "Map of server name to server configuration",
+      "additionalProperties": {
+        "$ref": "#/definitions/mcpServer"
+      }
+    }
+  },
+  "required": ["mcpServers"],
+  "additionalProperties": false,
+  "definitions": {
+    "mcpServer": {
+      "type": "object",
+      "description": "Configuration for a single MCP server",
+      "properties": {
+        "command": {
+          "type": "string",
+          "description": "The command to execute (e.g., npx, node)"
+        },
+        "args": {
+          "type": "array",
+          "description": "Arguments passed to the command",
+          "items": {
+            "type": "string"
+          }
+        },
+        "env": {
+          "type": "object",
+          "description": "Environment variables for the server process",
+          "additionalProperties": {
+            "type": "string"
+          }
+        }
+      },
+      "required": ["command", "args"],
+      "additionalProperties": false
+    }
+  }
+}
