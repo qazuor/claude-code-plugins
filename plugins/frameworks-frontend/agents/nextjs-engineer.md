@@ -5,7 +5,7 @@ description:
   Components, SSR/SSG/ISR, middleware, route handlers, streaming, and caching
 tools: Read, Write, Edit, Glob, Grep, Bash, mcp__context7__resolve-library-id, mcp__context7__query-docs
 model: sonnet
-skills: nextjs-patterns
+skills: nextjs-patterns, vercel-react-best-practices
 ---
 
 # Next.js Engineer Agent

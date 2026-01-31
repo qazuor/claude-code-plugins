@@ -149,11 +149,12 @@ Complete inventory of all components across all plugins.
 | tanstack-start-engineer | TanStack Start full-stack framework |
 | nextjs-engineer | Next.js App Router, SSR/SSG/ISR |
 
-### Skills (11)
+### Skills (12)
 
 | Name | Description |
 |------|-------------|
 | react-patterns | Components, hooks, compound patterns |
+| vercel-react-best-practices | 57 React/Next.js performance rules from Vercel Engineering |
 | zustand-patterns | Stores, slices, middleware, persist |
 | react-hook-form-patterns | Forms + Zod, useFieldArray, Controller |
 | tanstack-patterns | TanStack ecosystem overview |
