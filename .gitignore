@@ -17,6 +17,7 @@ Thumbs.db
 .env
 .env.local
 .env.*.local
+.env.mcp
 
 # Node modules (not needed but just in case)
 node_modules/
