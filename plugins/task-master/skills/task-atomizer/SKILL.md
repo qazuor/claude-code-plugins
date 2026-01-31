@@ -22,11 +22,12 @@ You will receive:
 
 ## Core Principles
 
-1. **Atomic tasks**: Each task must be completable in 1-3 hours by a single developer
+1. **Ultra-granular atomic tasks**: Each task must be completable independently with a focused set of files. Prefer many small tasks over few large ones. There is **no maximum number of tasks** — granularity is always preferred over brevity
 2. **Layer ordering**: Tasks follow DB -> Service -> API -> Frontend progression
 3. **Independent testability**: Each task produces testable output on its own
 4. **TDD included**: Unit tests are part of each implementation task, not separate tasks
-5. **Clear boundaries**: Each task has a focused set of files to create or modify
+5. **Clear boundaries**: Each task has a focused set of files to create or modify (ideally 1-5)
+6. **Phase organization**: Tasks are grouped by phase (setup → core → integration → testing → docs → cleanup) to create natural pause points for user review between phases
 
 ## Process
 
@@ -153,10 +154,16 @@ Avoid vague titles like:
 ### Task Description Guidelines
 
 Each description MUST include:
-1. **What to do** - Clear action to take
-2. **Where to do it** - Specific files to create or modify (with paths)
-3. **How to verify** - How to know the task is complete
-4. **Test expectations** - What tests to write (for core/integration phase tasks)
+1. **What to do** — Clear action to take
+2. **Where to do it** — Specific files to create or modify (with paths)
+3. **How to verify** — How to know the task is complete
+4. **Test requirements (MANDATORY)** — Specific tests that MUST be written for this task:
+   - **Unit tests:** Which functions to test, which behaviors and edge cases
+   - **Integration tests:** Which interactions to test (if task involves multi-component work)
+   - **Test files:** Exact test file paths to create or modify
+   - **Test patterns:** Fixtures, mocks, or utilities needed
+
+**A task without test requirements is incomplete.** Every task that produces code MUST specify what tests to write. The TDD cycle (Red-Green-Refactor) requires knowing what tests to write BEFORE starting implementation. No tests = not done.
 
 ### Step 4: Assign Dependencies
 
@@ -191,10 +198,10 @@ Before returning tasks, validate:
 
 1. **No orphan dependencies**: Every ID in `blockedBy`/`blocks` refers to an existing task
 2. **No circular dependencies**: A does not (transitively) depend on itself
-3. **No oversized tasks**: Any task estimated >3 hours should be split further
+3. **No oversized tasks**: Any task estimated >3 hours should be split further into smaller atomic tasks
 4. **Phase consistency**: Tasks in earlier phases don't depend on later-phase tasks
 5. **Complete coverage**: All aspects of the feature are covered
-6. **Maximum 15 tasks**: If more are needed, suggest splitting into multiple specs
+6. **Granularity check**: Prefer more small tasks over fewer large ones. There is no maximum — 30+ tasks is perfectly acceptable if each is atomic and clear
 
 ## Output
 
@@ -214,9 +221,10 @@ Also provide a brief summary:
 - Tasks MUST follow layer order: DB -> Service -> API -> Frontend
 - Each task should modify a focused set of files (ideally 1-5 files)
 - Include test writing as part of each implementation task, NOT as separate tasks (unless it's integration/e2e tests spanning multiple components)
-- Maximum 15 tasks per spec. If more are needed, recommend splitting into phases or multiple specs
+- **No maximum number of tasks.** Prefer many granular tasks over few large ones. 30+ tasks is perfectly acceptable if the spec warrants it
 - Task IDs are sequential: T-001, T-002, T-003, etc.
 - The `complexity` field should be set to 0 initially -- it will be filled by the complexity-scorer skill
 - All timestamps use ISO 8601 format
 - All `qualityGate` fields start as null
 - All tasks start with `status: "pending"`
+- **Phase boundaries are pause points.** When all tasks in a phase are complete, the user should be prompted to review before continuing to the next phase
