@@ -10,7 +10,15 @@ RED='\033[0;31m'
 CYAN='\033[0;36m'
 NC='\033[0m'
 
-ENV_FILE="$HOME/.claude/.env.mcp"
+# Check project-level env first, then user-level
+PROJECT_ROOT="${CLAUDE_PROJECT_DIR:-.}"
+if [ -f "$PROJECT_ROOT/.claude/.env" ]; then
+    ENV_FILE="$PROJECT_ROOT/.claude/.env"
+elif [ -f "$HOME/.claude/.env.mcp" ]; then
+    ENV_FILE="$HOME/.claude/.env.mcp"
+else
+    ENV_FILE=""
+fi
 
 echo -e "${CYAN}MCP Server Dependency Check${NC}"
 echo ""
@@ -36,8 +44,8 @@ check_env() {
     # Check system env first
     value="${!var:-}"
 
-    # Then check .env.mcp file
-    if [ -z "$value" ] && [ -f "$ENV_FILE" ]; then
+    # Then check env file
+    if [ -z "$value" ] && [ -n "$ENV_FILE" ] && [ -f "$ENV_FILE" ]; then
         value=$(grep "^${var}=" "$ENV_FILE" 2>/dev/null | cut -d'=' -f2- || true)
     fi
 
