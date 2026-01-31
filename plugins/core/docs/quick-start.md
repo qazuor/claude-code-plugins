@@ -42,7 +42,7 @@ Before starting, ensure you have:
 | **Agent** | Specialized AI assistant | `qa-engineer`, `db-engineer` |
 | **Command** | Slash-invokable workflow | `/quality-check`, `/commit` |
 | **Skill** | Reusable capability | `git-commit-helper`, `tdd-workflow` |
-| **Template** | Starting point for new docs | `pdr-template.md`, `settings-template.json` |
+| **Template** | Starting point for new docs | `global.md.template`, `settings-template.json` |
 
 **Learn more:** See [glossary.md](glossary.md) for comprehensive terminology.
 
@@ -141,10 +141,10 @@ Templates are available in the `templates/` directory:
 |----------|---------|
 | `global.md.template` | Universal CLAUDE.md rules |
 | `project-generic.md.template` | Project-specific CLAUDE.md |
-| `pdr-template.md` | Product Design Requirements |
-| `tech-analysis-template.md` | Technical Analysis |
-| `todos-template.md` | Task Breakdown |
 | `settings-template.json` | Claude Code settings |
+| `brand-config.json.template` | Brand voice configuration |
+| `code-review.yml` | GitHub Action for code review |
+| `security-review.yml` | GitHub Action for security review |
 
 ### Using a Template
 
