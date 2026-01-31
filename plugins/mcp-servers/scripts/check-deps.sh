@@ -88,29 +88,51 @@ echo -e "${CYAN}API Key Required:${NC}"
 PASS=0
 WARN=0
 
-check_env "PERPLEXITY_API_KEY" "perplexity-ask" && ((PASS++)) || ((WARN++))
-check_env "GITHUB_TOKEN" "github" && ((PASS++)) || ((WARN++))
-check_env "VERCEL_TOKEN" "vercel" && ((PASS++)) || ((WARN++))
-check_env "LINEAR_API_KEY" "linear" && ((PASS++)) || ((WARN++))
-check_env "NEON_API_KEY" "neon" && ((PASS++)) || ((WARN++))
-check_env "SENTRY_AUTH_TOKEN" "sentry" && ((PASS++)) || ((WARN++))
-check_env "BRAVE_API_KEY" "brave-search" && ((PASS++)) || ((WARN++))
-check_env "NOTION_TOKEN" "notion" && ((PASS++)) || ((WARN++))
-check_env "SLACK_BOT_TOKEN" "slack" && ((PASS++)) || ((WARN++))
-check_env "FIGMA_TOKEN" "figma" && ((PASS++)) || ((WARN++))
-check_env "MERCADOPAGO_ACCESS_TOKEN" "mercadopago" && ((PASS++)) || ((WARN++))
-check_env "SUPABASE_ACCESS_TOKEN" "supabase" && ((PASS++)) || ((WARN++))
-check_env "SOCKET_API_KEY" "socket" && ((PASS++)) || ((WARN++))
-check_env "BROWSERSTACK_USERNAME" "browserstack (username)" && ((PASS++)) || ((WARN++))
-check_env "BROWSERSTACK_ACCESS_KEY" "browserstack (access key)" && ((PASS++)) || ((WARN++))
-check_env "UPSTASH_REDIS_REST_URL" "redis/upstash (url)" && ((PASS++)) || ((WARN++))
-check_env "UPSTASH_REDIS_REST_TOKEN" "redis/upstash (token)" && ((PASS++)) || ((WARN++))
-check_env "TWENTY_FIRST_API_KEY" "@21st-dev/magic" && ((PASS++)) || ((WARN++))
+API_KEYS=(
+    "PERPLEXITY_API_KEY:perplexity-ask"
+    "GITHUB_TOKEN:github"
+    "VERCEL_TOKEN:vercel"
+    "LINEAR_API_KEY:linear"
+    "NEON_API_KEY:neon"
+    "SENTRY_AUTH_TOKEN:sentry"
+    "BRAVE_API_KEY:brave-search"
+    "NOTION_TOKEN:notion"
+    "SLACK_BOT_TOKEN:slack"
+    "FIGMA_TOKEN:figma"
+    "MERCADOPAGO_ACCESS_TOKEN:mercadopago"
+    "SUPABASE_ACCESS_TOKEN:supabase"
+    "SOCKET_API_KEY:socket"
+    "BROWSERSTACK_USERNAME:browserstack (username)"
+    "BROWSERSTACK_ACCESS_KEY:browserstack (access key)"
+    "UPSTASH_REDIS_REST_URL:redis/upstash (url)"
+    "UPSTASH_REDIS_REST_TOKEN:redis/upstash (token)"
+    "TWENTY_FIRST_API_KEY:@21st-dev/magic"
+)
+for entry in "${API_KEYS[@]}"; do
+    key="${entry%%:*}"
+    name="${entry#*:}"
+    if check_env "$key" "$name"; then
+        ((PASS++))
+    else
+        ((WARN++))
+    fi
+done
 echo ""
 
 echo -e "${CYAN}Connection Required:${NC}"
-check_env "DATABASE_URL" "postgres" && ((PASS++)) || ((WARN++))
-check_env "SQLITE_DB_PATH" "sqlite" && ((PASS++)) || ((WARN++))
+CONN_KEYS=(
+    "DATABASE_URL:postgres"
+    "SQLITE_DB_PATH:sqlite"
+)
+for entry in "${CONN_KEYS[@]}"; do
+    key="${entry%%:*}"
+    name="${entry#*:}"
+    if check_env "$key" "$name"; then
+        ((PASS++))
+    else
+        ((WARN++))
+    fi
+done
 echo ""
 
 echo -e "${CYAN}Summary:${NC}"

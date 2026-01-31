@@ -125,7 +125,6 @@ if [ "$PROJECT_MODE" = true ]; then
     # Clean settings.local.json hooks
     LOCAL_SETTINGS="$CLAUDE_DIR/settings.local.json"
     if [ -f "$LOCAL_SETTINGS" ] && command -v jq &> /dev/null; then
-        local tmp_file
         tmp_file=$(mktemp "${LOCAL_SETTINGS}.XXXXXX")
         if jq 'del(.hooks)' "$LOCAL_SETTINGS" > "$tmp_file"; then
             # If only empty object remains, remove the file
@@ -148,7 +147,9 @@ if [ "$PROJECT_MODE" = true ]; then
     fi
 
     # Remove .claude/ if empty
-    rmdir "$CLAUDE_DIR" 2>/dev/null && echo -e "${GREEN}Removed${NC} empty $CLAUDE_DIR" || true
+    if rmdir "$CLAUDE_DIR" 2>/dev/null; then
+        echo -e "${GREEN}Removed${NC} empty $CLAUDE_DIR"
+    fi
 
 else
     # --- User-level uninstall ---
@@ -179,7 +180,6 @@ else
     # Clean settings.json
     if [ -f "$SETTINGS_FILE" ] && command -v jq &> /dev/null; then
         # Remove all @qazuor entries from enabledPlugins
-        local tmp_file
         tmp_file=$(mktemp "${SETTINGS_FILE}.XXXXXX")
         if jq 'if .enabledPlugins then .enabledPlugins |= with_entries(select(.key | endswith("@qazuor") | not)) else . end' "$SETTINGS_FILE" > "$tmp_file"; then
             mv "$tmp_file" "$SETTINGS_FILE"

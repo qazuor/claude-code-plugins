@@ -720,6 +720,7 @@ if [ "$SETUP_MCP" = true ] && [[ " ${INSTALLED[*]} " =~ " mcp-servers " ]]; then
     for key in "${!MCP_KEYS[@]}"; do
         desc="${MCP_KEYS[$key]}"
         # Escape key for safe grep usage (handles regex special chars)
+        # shellcheck disable=SC2016
         escaped_key=$(printf '%s' "$key" | sed 's/[.[\*^$()+?{|\\]/\\&/g')
         if grep -q "^${escaped_key}=" "$ENV_FILE" 2>/dev/null; then
             echo -ne "  ${desc} [${GREEN}configured${NC}] (Enter to keep, or new value): "
@@ -729,7 +730,6 @@ if [ "$SETUP_MCP" = true ] && [[ " ${INSTALLED[*]} " =~ " mcp-servers " ]]; then
         read -r value
         if [ -n "$value" ]; then
             # Remove existing and add new
-            local env_tmp
             env_tmp=$(mktemp "${ENV_FILE}.XXXXXX")
             grep -v "^${escaped_key}=" "$ENV_FILE" > "$env_tmp" 2>/dev/null || true
             echo "${key}=${value}" >> "$env_tmp"
