@@ -35,14 +35,34 @@ A task is **available** if ALL of the following are true:
 
 1. Its `status` is `"pending"` (not in-progress, completed, blocked, or cancelled)
 2. Its `blockedBy` array is empty, OR every task ID in `blockedBy` has status `"completed"` in the same state file
+3. Its `complexity` is ≤ 4 (tasks with complexity > 4 are too complex and must be split first)
 
 Collect all available tasks from all state files. Track which epic/standalone group each task belongs to.
+
+### Complexity Filter
+
+**Tasks with complexity > 4 are NEVER presented as available**, even if they meet all other criteria. Instead, they are listed separately with a warning:
+
+```
+⚠ Tasks requiring decomposition (complexity > 4):
+
+  T-009 "Implement full OAuth flow" (complexity: 6)
+    This task exceeds the maximum complexity of 4 and cannot be started.
+    Use /replan to split it into smaller tasks first.
+
+  T-012 "Build admin dashboard" (complexity: 5)
+    This task exceeds the maximum complexity of 4 and cannot be started.
+    Use /replan to split it into smaller tasks first.
+```
+
+This acts as a safety net to prevent execution of tasks that slipped through the multi-pass decomposition.
 
 ### Handle edge cases
 
 - **No tasks at all**: Display "No tasks found" message
 - **All tasks completed**: Display congratulations message with completion stats
 - **All remaining tasks blocked**: Display "All remaining tasks are blocked" with details of what's blocking progress and which in-progress tasks need to finish first
+- **All available tasks exceed complexity 4**: Display "All available tasks exceed maximum complexity 4. Use /replan to split them before continuing."
 - **Tasks already in-progress**: Remind the user they have in-progress tasks and ask if they want to continue those first before starting a new one
 
 ## Step 3: Rank Available Tasks
