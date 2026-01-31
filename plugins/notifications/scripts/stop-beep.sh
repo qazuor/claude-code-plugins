@@ -48,11 +48,9 @@ OS="$(detect_os)"
 play_beep() {
     case "$OS" in
         linux)
-            # speaker-test generates a sine wave; we kill it after 0.2s
+            # speaker-test generates a sine wave; timeout limits duration
             if command -v speaker-test &>/dev/null; then
-                ( speaker-test -t sine -f 1000 -l 1 ) &>/dev/null & local pid=$!
-                sleep 0.2
-                kill -9 "$pid" &>/dev/null || true
+                timeout 0.2 speaker-test -t sine -f 1000 -l 1 &>/dev/null || true
                 return 0
             fi
             # paplay with a generated beep via sox
@@ -76,9 +74,7 @@ play_beep() {
             fi
             # WSL with speaker-test (if PulseAudio/ALSA is set up)
             if command -v speaker-test &>/dev/null; then
-                ( speaker-test -t sine -f 1000 -l 1 ) &>/dev/null & local pid=$!
-                sleep 0.2
-                kill -9 "$pid" &>/dev/null || true
+                timeout 0.2 speaker-test -t sine -f 1000 -l 1 &>/dev/null || true
                 return 0
             fi
             ;;
