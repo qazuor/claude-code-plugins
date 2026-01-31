@@ -402,3 +402,52 @@ jobs:
           else
             echo "✓ All agents have valid frontmatter"
           fi
+
+  installer-test:
+    name: Test installer scripts
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Run installer unit tests
+        run: ./installer/test-installer.sh
+
+      - name: Test dry-run mode
+        run: ./installer/install.sh --profile full-stack --dry-run
+
+      - name: Test user-level install and uninstall
+        run: |
+          # Use a temp HOME to avoid modifying the runner
+          export HOME="$(mktemp -d)"
+          mkdir -p "$HOME/.claude"
+
+          # Install
+          ./installer/install.sh --profile full-stack
+          echo "✓ Install completed"
+
+          # Verify symlinks exist
+          for plugin in core notifications frameworks-frontend frameworks-backend frameworks-shared task-master mcp-servers; do
+            if [ ! -d "$HOME/.claude/plugins/cache/qazuor/$plugin" ]; then
+              echo "::error::Plugin '$plugin' symlink not found after install"
+              exit 1
+            fi
+          done
+          echo "✓ All symlinks verified"
+
+          # Verify settings.json was updated
+          if ! jq -e '.enabledPlugins' "$HOME/.claude/settings.json" > /dev/null 2>&1; then
+            echo "::error::settings.json not updated with enabledPlugins"
+            exit 1
+          fi
+          echo "✓ settings.json updated"
+
+          # Uninstall
+          echo "y" | ./installer/uninstall.sh
+          echo "✓ Uninstall completed"
+
+          # Verify cleanup
+          if [ -d "$HOME/.claude/plugins/cache/qazuor" ]; then
+            echo "::error::Plugin cache not removed after uninstall"
+            exit 1
+          fi
+          echo "✓ Cleanup verified"
