@@ -2,21 +2,43 @@
 
 This document defines the testing standards and practices for TypeScript projects. All code must be tested according to these rules.
 
+**The Iron Rule: No tests = Not done.** A task, feature, fix, or change is NEVER considered complete without tests. This is non-negotiable.
+
 ---
 
 ## Table of Contents
 
-1. [Testing Philosophy](#testing-philosophy)
-2. [TDD Workflow](#tdd-workflow)
-3. [Test Types](#test-types)
-4. [Coverage Requirements](#coverage-requirements)
-5. [Test Structure](#test-structure)
-6. [Naming Conventions](#naming-conventions)
-7. [Test Patterns](#test-patterns)
-8. [Mocking and Fixtures](#mocking-and-fixtures)
-9. [Database Testing](#database-testing)
-10. [API Testing](#api-testing)
-11. [Common Pitfalls](#common-pitfalls)
+1. [The Iron Rule](#the-iron-rule)
+2. [Testing Philosophy](#testing-philosophy)
+3. [SDD + TDD Integration](#sdd--tdd-integration)
+4. [TDD Workflow](#tdd-workflow)
+5. [Test Types](#test-types)
+6. [Coverage Requirements](#coverage-requirements)
+7. [Test Structure](#test-structure)
+8. [Naming Conventions](#naming-conventions)
+9. [Test Patterns](#test-patterns)
+10. [Mocking and Fixtures](#mocking-and-fixtures)
+11. [Database Testing](#database-testing)
+12. [API Testing](#api-testing)
+13. [Common Pitfalls](#common-pitfalls)
+
+---
+
+## The Iron Rule
+
+**No tests = Not done.** This rule has zero exceptions.
+
+| Change Type | Required Tests |
+|---|---|
+| **Any code change** | Unit tests for all new/modified public functions |
+| **Service/business logic** | Unit tests + integration tests with dependencies |
+| **API endpoints** | Integration tests for all endpoints (success, error, auth, validation) |
+| **Database changes** | Unit tests for model methods + integration tests for queries |
+| **Frontend components** | Unit tests for logic + interaction tests |
+| **User-facing flows** | E2E tests for critical paths |
+| **Bug fixes** | Regression test that reproduces the bug and verifies the fix |
+
+**Without tests, the quality gate WILL reject task completion.** Implementation and tests are committed together as a single atomic unit.
 
 ---
 
@@ -24,11 +46,18 @@ This document defines the testing standards and practices for TypeScript project
 
 ### Core Principles
 
+**Spec Driven Development + Test Driven Development (SDD + TDD):**
+
+- The specification defines WHAT to test (acceptance criteria, edge cases, error scenarios)
+- TDD defines HOW to implement (write tests first, then code)
+- Together they ensure every piece of code is both specified and tested
+
 **Test-Driven Development (TDD):**
 
 - Write tests FIRST, before implementation
 - Follow Red -> Green -> Refactor cycle
 - Tests define the interface and behavior
+- If a test is hard to write, the design needs improvement
 
 **90% Minimum Coverage:**
 
@@ -40,6 +69,59 @@ This document defines the testing standards and practices for TypeScript project
 
 - Tests should be maintainable and readable
 - Tests should test behavior, not implementation
+
+---
+
+## SDD + TDD Integration
+
+The development workflow combines Spec Driven Development with Test Driven Development:
+
+```
+Spec defines acceptance criteria (SDD)
+  ↓
+Acceptance criteria become test cases
+  ↓
+Tests are written BEFORE implementation (TDD - RED)
+  ↓
+Implementation makes tests pass (TDD - GREEN)
+  ↓
+Code is improved with tests as safety net (TDD - REFACTOR)
+  ↓
+Quality gate verifies all tests pass + new tests exist
+```
+
+### How Spec Criteria Map to Tests
+
+| Spec Element | Test Type |
+|---|---|
+| User story acceptance criteria (Given/When/Then) | Unit tests and integration tests |
+| API endpoint definitions | Integration tests (success, error, auth, validation) |
+| Data model validation rules | Unit tests for validation functions |
+| Error handling scenarios | Unit tests for each error path |
+| Edge cases | Dedicated edge case tests |
+| User flows | E2E tests |
+| Performance requirements | Performance/load tests |
+
+### Example: From Spec to Tests
+
+**Spec acceptance criterion:**
+> Given a user with valid credentials, When they submit the login form, Then they receive a JWT token and are redirected to the dashboard.
+
+**Tests derived:**
+```typescript
+describe('AuthService.login', () => {
+  it('should return JWT token for valid credentials', async () => { /* ... */ });
+  it('should reject invalid password', async () => { /* ... */ });
+  it('should reject non-existent email', async () => { /* ... */ });
+  it('should reject locked accounts', async () => { /* ... */ });
+});
+
+describe('POST /api/auth/login', () => {
+  it('should return 200 with token for valid login', async () => { /* ... */ });
+  it('should return 401 for invalid credentials', async () => { /* ... */ });
+  it('should return 400 for missing fields', async () => { /* ... */ });
+});
+```
 
 ---
 
@@ -440,4 +522,6 @@ Before considering testing complete:
 
 ---
 
-**TDD is mandatory. Tests must be written BEFORE implementation.**
+**No tests = Not done. TDD is mandatory. Tests must be written BEFORE implementation.**
+
+The development workflow uses SDD+TDD: the spec defines what to test, TDD ensures tests are written before implementation, and the quality gate enforces that no code ships without tests. See [development-workflow.md](development-workflow.md) for the full workflow.
