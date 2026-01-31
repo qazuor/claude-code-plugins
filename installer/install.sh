@@ -158,15 +158,16 @@ update_settings() {
     done
 
     # Merge into settings.json (atomic write via temp file)
-    local current
+    local current tmp_file
     current=$(cat "$SETTINGS_FILE")
+    tmp_file=$(mktemp "${SETTINGS_FILE}.XXXXXX")
     if echo "$current" | jq --argjson plugins "$enabled_json" \
-        '.enabledPlugins = ((.enabledPlugins // {}) + $plugins)' > "$SETTINGS_FILE.tmp"; then
-        mv "$SETTINGS_FILE.tmp" "$SETTINGS_FILE"
+        '.enabledPlugins = ((.enabledPlugins // {}) + $plugins)' > "$tmp_file"; then
+        mv "$tmp_file" "$SETTINGS_FILE"
     else
         echo -e "${RED}ERROR: Failed to update settings.json${NC}"
         mv "$SETTINGS_FILE.bak" "$SETTINGS_FILE"
-        rm -f "$SETTINGS_FILE.tmp"
+        rm -f "$tmp_file"
         return 1
     fi
     rm -f "$SETTINGS_FILE.bak"
@@ -276,17 +277,19 @@ merge_hooks_project() {
     # Merge into settings file (append to existing event arrays)
     local current
     current=$(cat "$settings_file")
+    local tmp_file
+    tmp_file=$(mktemp "${settings_file}.XXXXXX")
     if echo "$current" | jq --argjson new "$new_hooks" '
         .hooks = ((.hooks // {}) as $existing |
             ($new | to_entries | reduce .[] as $entry ($existing;
                 .[$entry.key] = ((.[$entry.key] // []) + $entry.value)
             ))
         )
-    ' > "$settings_file.tmp"; then
-        mv "$settings_file.tmp" "$settings_file"
+    ' > "$tmp_file"; then
+        mv "$tmp_file" "$settings_file"
     else
         echo -e "  ${YELLOW}!${NC} Failed to merge hooks from $(basename "$plugin_dir")"
-        rm -f "$settings_file.tmp"
+        rm -f "$tmp_file"
         return 0
     fi
 
@@ -313,15 +316,16 @@ merge_mcp_project() {
 
     if [ -f "$mcp_target" ]; then
         # Merge into existing .mcp.json
-        local existing
+        local existing tmp_file
         existing=$(cat "$mcp_target")
+        tmp_file=$(mktemp "${mcp_target}.XXXXXX")
         if echo "$existing" | jq --argjson new "$mcp_servers" '
             .mcpServers = ((.mcpServers // {}) + $new)
-        ' > "$mcp_target.tmp"; then
-            mv "$mcp_target.tmp" "$mcp_target"
+        ' > "$tmp_file"; then
+            mv "$tmp_file" "$mcp_target"
         else
             echo -e "  ${YELLOW}!${NC} Failed to merge .mcp.json"
-            rm -f "$mcp_target.tmp"
+            rm -f "$tmp_file"
             return 0
         fi
     else
@@ -588,9 +592,11 @@ if [ "$SETUP_MCP" = true ] && [[ " ${INSTALLED[*]} " =~ " mcp-servers " ]]; then
         read -r value
         if [ -n "$value" ]; then
             # Remove existing and add new
-            grep -v "^${escaped_key}=" "$ENV_FILE" > "$ENV_FILE.tmp" 2>/dev/null || true
-            echo "${key}=${value}" >> "$ENV_FILE.tmp"
-            mv "$ENV_FILE.tmp" "$ENV_FILE"
+            local env_tmp
+            env_tmp=$(mktemp "${ENV_FILE}.XXXXXX")
+            grep -v "^${escaped_key}=" "$ENV_FILE" > "$env_tmp" 2>/dev/null || true
+            echo "${key}=${value}" >> "$env_tmp"
+            mv "$env_tmp" "$ENV_FILE"
             chmod 600 "$ENV_FILE"
             echo -e "    ${GREEN}✓${NC} Saved"
         fi

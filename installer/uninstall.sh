@@ -125,17 +125,19 @@ if [ "$PROJECT_MODE" = true ]; then
     # Clean settings.local.json hooks
     LOCAL_SETTINGS="$CLAUDE_DIR/settings.local.json"
     if [ -f "$LOCAL_SETTINGS" ] && command -v jq &> /dev/null; then
-        if jq 'del(.hooks)' "$LOCAL_SETTINGS" > "$LOCAL_SETTINGS.tmp"; then
+        local tmp_file
+        tmp_file=$(mktemp "${LOCAL_SETTINGS}.XXXXXX")
+        if jq 'del(.hooks)' "$LOCAL_SETTINGS" > "$tmp_file"; then
             # If only empty object remains, remove the file
-            if [ "$(cat "$LOCAL_SETTINGS.tmp")" = "{}" ]; then
-                rm -f "$LOCAL_SETTINGS" "$LOCAL_SETTINGS.tmp"
+            if [ "$(cat "$tmp_file")" = "{}" ]; then
+                rm -f "$LOCAL_SETTINGS" "$tmp_file"
                 echo -e "${GREEN}Removed${NC} $LOCAL_SETTINGS (was only hooks)"
             else
-                mv "$LOCAL_SETTINGS.tmp" "$LOCAL_SETTINGS"
+                mv "$tmp_file" "$LOCAL_SETTINGS"
                 echo -e "${GREEN}Cleaned${NC} hooks from $LOCAL_SETTINGS"
             fi
         else
-            rm -f "$LOCAL_SETTINGS.tmp"
+            rm -f "$tmp_file"
         fi
     fi
 
@@ -177,12 +179,14 @@ else
     # Clean settings.json
     if [ -f "$SETTINGS_FILE" ] && command -v jq &> /dev/null; then
         # Remove all @qazuor entries from enabledPlugins
-        if jq 'if .enabledPlugins then .enabledPlugins |= with_entries(select(.key | endswith("@qazuor") | not)) else . end' "$SETTINGS_FILE" > "$SETTINGS_FILE.tmp"; then
-            mv "$SETTINGS_FILE.tmp" "$SETTINGS_FILE"
+        local tmp_file
+        tmp_file=$(mktemp "${SETTINGS_FILE}.XXXXXX")
+        if jq 'if .enabledPlugins then .enabledPlugins |= with_entries(select(.key | endswith("@qazuor") | not)) else . end' "$SETTINGS_FILE" > "$tmp_file"; then
+            mv "$tmp_file" "$SETTINGS_FILE"
             echo -e "${GREEN}Cleaned${NC} $SETTINGS_FILE"
         else
             echo -e "${RED}Failed to clean settings.json. Manual cleanup may be needed.${NC}"
-            rm -f "$SETTINGS_FILE.tmp"
+            rm -f "$tmp_file"
         fi
     fi
 fi
