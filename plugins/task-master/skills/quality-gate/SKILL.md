@@ -96,8 +96,22 @@ Run checks in this order:
 1. **lint** - Code style and quality
 2. **typecheck** - Type safety
 3. **tests** - Test suite execution
+4. **test-existence** - Verify new tests were written for this task
 
 If a required check fails, continue running remaining checks (to give a complete picture) but the overall gate will fail.
+
+### Test Existence Check
+
+**CRITICAL: No tests = not done.** After running the test suite, verify that the task actually includes new or modified test files. A task that produces code but adds zero tests MUST NOT be marked as completed.
+
+To verify test existence:
+1. Check the task's staged or modified files for test files (files matching `*.test.ts`, `*.spec.ts`, `*.test.tsx`, `*.spec.tsx`, or within a `__tests__/` directory)
+2. If the task is in the `core`, `integration`, or `setup` phase and has NO test files, the quality gate FAILS
+3. The `docs` and `cleanup` phases are exempt from this check (docs do not require tests; cleanup tasks that only remove code may not need new tests)
+
+Report test existence as part of the quality gate output:
+- `tests-added: YES (3 new test files)` — gate passes
+- `tests-added: NO` — gate fails with message: "No new tests found. Every code change must include tests. No tests = not done."
 
 ### Step 4: Record Results
 
@@ -203,9 +217,10 @@ After updating the task:
 Quality Gate Results for T-003
 ==============================
 
-  lint:      PASS
-  typecheck: PASS
-  tests:     PASS (coverage: 94.2%)
+  lint:         PASS
+  typecheck:    PASS
+  tests:        PASS (coverage: 94.2%)
+  tests-added:  YES (2 new test files)
 
 All quality checks passed!
 
@@ -219,6 +234,8 @@ Newly unblocked tasks:
 Suggested next task:
   T-005 (complexity: 4) - Create search API endpoint
   (on the critical path, unblocks T-007)
+
+Remember: Commit your completed work (implementation + tests) with /commit before starting the next task.
 ```
 
 ### Some Checks Fail
@@ -227,9 +244,10 @@ Suggested next task:
 Quality Gate Results for T-003
 ==============================
 
-  lint:      FAIL
-  typecheck: PASS
-  tests:     FAIL
+  lint:         FAIL
+  typecheck:    PASS
+  tests:        FAIL
+  tests-added:  YES (2 new test files)
 
 Quality gate FAILED. Task T-003 remains in-progress.
 
@@ -265,9 +283,10 @@ Fix the issues above and re-run the quality gate.
 Quality Gate Results for T-008
 ==============================
 
-  lint:      PASS
-  typecheck: PASS
-  tests:     PASS (coverage: 96.1%)
+  lint:         PASS
+  typecheck:    PASS
+  tests:        PASS (coverage: 96.1%)
+  tests-added:  YES (1 new test file)
 
 All quality checks passed!
 
