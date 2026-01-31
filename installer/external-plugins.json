@@ -1,0 +1,26 @@
+{
+  "description": "Recommended third-party Claude Code plugins",
+  "plugins": [
+    {
+      "name": "claude-mem",
+      "marketplace": "thedotmack",
+      "repo": "thedotmack/claude-mem",
+      "description": "Persistent memory across coding sessions",
+      "pluginId": "claude-mem@thedotmack"
+    },
+    {
+      "name": "diary",
+      "marketplace": "rlancemartin",
+      "repo": "rlancemartin/claude-diary",
+      "description": "Session diary entries and CLAUDE.md reflection",
+      "pluginId": "diary@rlancemartin"
+    },
+    {
+      "name": "ralph-loop-setup",
+      "marketplace": "MarioGiancini",
+      "repo": "MarioGiancini/ralph-loop-setup",
+      "description": "Autonomous TDD loops (Ralph Wiggum technique)",
+      "pluginId": "ralph-loop-setup@MarioGiancini"
+    }
+  ]
+}
