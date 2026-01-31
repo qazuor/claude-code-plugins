@@ -66,8 +66,8 @@
         "complexity": {
           "type": "integer",
           "minimum": 1,
-          "maximum": 10,
-          "description": "Complexity score from 1 (trivial) to 10 (very complex)"
+          "maximum": 4,
+          "description": "Complexity score from 1 (trivial) to 4 (moderate) — maximum for atomic tasks"
         },
         "blockedBy": {
           "type": "array",
