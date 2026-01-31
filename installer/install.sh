@@ -39,6 +39,7 @@ ENABLE_PLUGINS=()
 SETUP_MCP=false
 PROJECT_MODE=false
 PROJECT_DIR=""
+DRY_RUN=false
 
 usage() {
     echo -e "${CYAN}Claude Code Plugins Installer${NC}"
@@ -51,6 +52,7 @@ usage() {
     echo "  --project [dir]      Install into a project directory instead of user-level (~/.claude)"
     echo "                       Uses current directory if no dir specified"
     echo "  --setup-mcp          Run interactive MCP API key setup after installation"
+    echo "  --dry-run            Show what would be installed without making changes"
     echo "  --list               List available plugins and profiles"
     echo "  --help               Show this help message"
     echo ""
@@ -364,6 +366,10 @@ while [[ $# -gt 0 ]]; do
             SETUP_MCP=true
             shift
             ;;
+        --dry-run)
+            DRY_RUN=true
+            shift
+            ;;
         --list)
             list_available
             exit 0
@@ -467,6 +473,35 @@ fi
 
 echo -e "${BLUE}Plugins:${NC} ${PLUGINS_TO_INSTALL[*]}"
 echo ""
+
+# ---------------------------------------------------------------------------
+# Dry run: show what would happen and exit
+# ---------------------------------------------------------------------------
+if [ "$DRY_RUN" = true ]; then
+    echo -e "${CYAN}[DRY RUN] Would install the following:${NC}"
+    echo ""
+    for plugin_name in "${PLUGINS_TO_INSTALL[@]}"; do
+        plugin_dir="$PLUGINS_DIR/$plugin_name"
+        [ -d "$plugin_dir" ] || continue
+        echo -e "  ${GREEN}Plugin:${NC} $plugin_name"
+        if [ "$PROJECT_MODE" = true ]; then
+            for comp in agents commands skills docs templates; do
+                if [ -d "$plugin_dir/$comp" ]; then
+                    count=$(find "$plugin_dir/$comp" -maxdepth 1 \( -name '*.md' -o -type d ! -path "$plugin_dir/$comp" \) 2>/dev/null | wc -l)
+                    [ "$count" -gt 0 ] && echo "    $comp: $count"
+                fi
+            done
+            [ -f "$plugin_dir/hooks/hooks.json" ] && echo "    hooks: merged into .claude/settings.local.json"
+            [ -f "$plugin_dir/.mcp.json" ] && echo "    mcp: merged into .mcp.json"
+        else
+            version=$(jq -r '.version // "0.0.0"' "$plugin_dir/.claude-plugin/plugin.json") || true
+            echo "    -> $CACHE_DIR/$plugin_name/$version"
+        fi
+    done
+    echo ""
+    echo -e "${YELLOW}No changes were made (dry run).${NC}"
+    exit 0
+fi
 
 # ---------------------------------------------------------------------------
 # Install plugins
