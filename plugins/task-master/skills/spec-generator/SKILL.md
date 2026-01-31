@@ -17,13 +17,32 @@ You are a specification document generator for the Task Master plugin. Your job 
 
 You will receive:
 
-1. **Plan file content** - The raw content from a Plan Mode analysis (text or file path)
+1. **Plan file content** - The raw content from a Plan Mode analysis (text or file path). This plan should be the result of a thorough questioning phase where all ambiguity has been resolved with the user.
 2. **Complexity level** - One of: `low`, `medium`, or `high`
 
 If the complexity level is not provided, infer it from the plan content:
 - **low**: Single component, 1-3 files, straightforward changes
 - **medium**: Multiple components, 4-10 files, some new patterns
 - **high**: Cross-cutting concerns, 10+ files, new architecture, DB migrations
+
+## Spec Detail Requirements
+
+The generated specification MUST be **super detailed**. It serves as the single source of truth for development. A developer should be able to implement the feature from the spec alone without needing to ask additional questions.
+
+**Every spec MUST include (where applicable):**
+
+- **User stories** with detailed acceptance criteria in Given/When/Then format
+- **Technical approach** with specific file paths, patterns to follow, and architecture decisions
+- **Code examples** showing expected patterns, API shapes, data structures, and type definitions
+- **Data model changes** with exact table/column definitions and migration details
+- **API design** with complete request/response examples, error codes, and auth requirements
+- **Testing requirements** specifying what must be tested, expected coverage, and testing strategy
+- **Error handling** for every identified failure scenario
+- **Edge cases** explicitly documented with expected behavior
+- **Performance considerations** including load expectations and optimization needs
+- **Security considerations** including auth, validation, and data protection
+
+**Do NOT leave sections vague or generic.** If the plan does not provide enough detail for a section, note it as "To be determined during implementation" and flag it as a gap that should be resolved before starting development.
 
 ## Process
 
@@ -56,14 +75,15 @@ From the plan content, extract the following and map to template sections:
 | Template Section | Extraction Strategy |
 |---|---|
 | **Overview** | Summarize the plan's main goal, motivation, and success criteria |
-| **User Stories** | Convert described behaviors into "As a [role], I want [action], so that [benefit]" format. Create acceptance criteria using "Given/When/Then" format. |
+| **User Stories** | Convert described behaviors into "As a [role], I want [action], so that [benefit]" format. Create acceptance criteria using "Given/When/Then" format. Each criterion becomes a test case. |
 | **Technical Approach** | Extract architecture decisions, key files to modify/create, dependencies, and patterns to follow |
+| **Testing Strategy** | Define unit tests, integration tests, and E2E tests required. Map acceptance criteria to test cases. Specify test files and patterns. **This section is mandatory.** |
 | **Risks** | Extract any mentioned risks, edge cases, or concerns. Assess impact as High/Medium/Low |
-| **Tasks (Suggested)** | Create a preliminary task list organized by implementation order |
+| **Tasks (Suggested)** | Create a preliminary task list organized by implementation order. Each task must include test requirements. |
 
 #### For spec-full (high):
 
-All of the above, plus:
+All of the above (including Testing Strategy), plus:
 
 | Template Section | Extraction Strategy |
 |---|---|
@@ -71,10 +91,10 @@ All of the above, plus:
 | **Out of Scope** | Identify anything explicitly excluded or deferred |
 | **Architecture** | Extract system design, component interactions, data flow |
 | **Data Model Changes** | Identify any database table changes, migrations needed |
-| **API Design** | Extract endpoint definitions, auth requirements, request/response shapes |
+| **API Design** | Extract endpoint definitions, auth requirements, request/response shapes. Each endpoint becomes an integration test. |
 | **Dependencies** | Separate external packages (with versions if mentioned) from internal packages |
 | **Performance Considerations** | Extract load expectations, bottlenecks, optimization needs |
-| **Implementation Approach** | Organize tasks into phases: Setup, Core, Integration, Testing & Polish |
+| **Implementation Approach** | Organize tasks into phases: Setup, Core, Integration, Testing & Polish. Each task includes test requirements. |
 
 #### User Story Extraction Guidelines
 
@@ -221,7 +241,9 @@ Spec generated successfully!
 
   Next steps:
   1. Review the spec at .claude/specs/SPEC-003-user-authentication-system/spec.md
-  2. Once approved, run task generation to create actionable tasks
+  2. Once approved, generate ultra-granular atomic tasks organized by phase
+  3. Review and approve the task breakdown
+  4. Start development with /next-task, updating state after each task
 ```
 
 ## Error Handling
