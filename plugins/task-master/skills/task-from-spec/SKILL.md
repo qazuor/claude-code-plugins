@@ -45,28 +45,61 @@ From **metadata.json**, extract:
 - `type` - The work type (feature, bugfix, etc.)
 - `tags` - The categorization tags
 
-### Step 2: Invoke Task Atomizer
+### Step 2: Multi-Pass Task Decomposition
 
-Use the task-atomizer skill logic to break down the spec into atomic tasks.
+Use a **progressive multi-pass approach** to produce ultra-granular atomic tasks that all have complexity ≤ 4. This is more natural and produces better results than trying to atomize everything in one pass.
 
-Pass to the atomizer:
-- The full spec content as the feature description
-- Any available codebase context
+#### Pass 1: Macro Breakdown
 
-The atomizer will return an array of task objects organized by phase (setup -> core -> integration -> testing -> docs -> cleanup).
+Invoke the task-atomizer skill in **macro mode**:
+- Pass the full spec content as the feature description
+- Pass any available codebase context
+- The atomizer breaks the feature into major functional areas/tasks
+- At this stage, complexity 5-8 is expected — do NOT try to make tasks atomic yet
 
-### Step 3: Invoke Complexity Scorer
+Output: Array of high-level task objects organized by phase.
 
-Use the complexity-scorer skill logic to score each task from the atomizer.
+#### Pass 2: Split Major Tasks
 
-For each task:
-1. Pass the task description and any codebase context
-2. Receive back a complexity score (1-10) and justification
-3. Update the task's `complexity` field with the score
+Invoke the task-atomizer skill in **split mode** on each major task from Pass 1:
+- Decompose each major task into smaller sub-tasks
+- Assign phases, dependencies, and test requirements
+- Target complexity 3-4 per task, but some may still be 5-6
 
-### Step 4: Invoke Dependency Grapher
+Output: Expanded array of smaller task objects.
 
-Use the dependency-grapher skill logic to validate and optimize the dependency graph.
+#### Pass 3: Initial Scoring
+
+Invoke the complexity-scorer on ALL tasks from Pass 2:
+- Score each task (1-10) with justification
+- Mark tasks with `splitRequired: true` when complexity > 4
+- Update each task's `complexity` field
+
+#### Pass 4+: Refinement Loop
+
+**While any task has complexity > 4:**
+
+1. Collect all tasks with complexity > 4
+2. Invoke the task-atomizer on ONLY those tasks (further decomposition)
+3. Re-score the newly created sub-tasks using the complexity-scorer
+4. Replace the original high-complexity tasks with the new sub-tasks
+5. Re-assign task IDs sequentially (T-001, T-002, ...) and fix all dependency references
+6. Increment the iteration counter
+
+**Iteration safety:** Maximum 5 total passes (Pass 1 + Pass 2 + up to 3 refinement loops). If tasks still exceed complexity 4 after 5 passes:
+- Flag remaining high-complexity tasks with a warning in their description: `"⚠ COMPLEXITY {score} exceeds maximum 4. Manual review required — use /replan to split before starting."`
+- Report them prominently in the output summary
+- These tasks will be blocked from execution by the quality-gate and next-task command
+
+#### Completion Criteria
+
+The decomposition loop is **ONLY complete** when:
+- Every task has complexity ≤ 4, OR
+- Maximum iterations (5) reached and remaining tasks are flagged for manual review
+
+### Step 3: Invoke Dependency Grapher
+
+After all tasks are at complexity ≤ 4 (or flagged), invoke the dependency-grapher skill to validate and optimize the final dependency graph.
 
 Pass the full array of tasks with their `blockedBy` and `blocks` fields.
 
@@ -80,9 +113,9 @@ If the grapher finds issues:
 - **Missing references**: Add or remove references as suggested
 - **Inconsistencies**: Fix bidirectional references
 
-### Step 5: Generate state.json
+### Step 4: Generate state.json
 
-Create the state file with this structure:
+Create the state file. **All tasks in the state file MUST have complexity ≤ 4** (enforced by the multi-pass decomposition in Step 2). The state-schema.json validates this constraint.
 
 ```json
 {
@@ -96,7 +129,7 @@ Create the state file with this structure:
       "title": "Task title in imperative form",
       "description": "Detailed description with file paths and test expectations",
       "status": "pending",
-      "complexity": 5,
+      "complexity": 3,
       "blockedBy": [],
       "blocks": ["T-002"],
       "subtasks": [
@@ -136,7 +169,7 @@ Create the state file with this structure:
 - `blocked`: Tasks with status "blocked"
 - `averageComplexity`: Mean of all task complexity scores, rounded to 1 decimal
 
-### Step 6: Create Task Directory
+### Step 5: Create Task Directory
 
 Create the directory: `.claude/tasks/SPEC-NNN-slug/`
 
@@ -144,7 +177,7 @@ Use the same slug from the spec directory name. If the spec directory is `SPEC-0
 
 Write `state.json` to this directory.
 
-### Step 7: Generate TODOs.md
+### Step 6: Generate TODOs.md
 
 Create a human-readable task overview in `.claude/tasks/SPEC-NNN-slug/TODOs.md`:
 
@@ -213,7 +246,7 @@ Level 3: T-005, T-006
 Begin with **T-001** (complexity: 2) - it has no dependencies and unblocks 2 other tasks.
 ```
 
-### Step 8: Update tasks/index.json
+### Step 7: Update tasks/index.json
 
 Read or create `.claude/tasks/index.json`. This file uses the index schema:
 
@@ -247,18 +280,23 @@ After completing all steps, report to the user:
 Tasks generated successfully from SPEC-003!
 
   Spec:               SPEC-003 - User Authentication System
-  Total tasks:        8
-  Average complexity: 4.5/10
+  Total tasks:        14
+  Average complexity: 2.8/4 (max)
+  Decomposition:     3 passes (all tasks ≤ 4 complexity)
 
   Phase breakdown:
-    Setup:        1 task  (avg complexity: 2.0)
-    Core:         3 tasks (avg complexity: 5.0)
-    Integration:  2 tasks (avg complexity: 5.5)
-    Testing:      1 task  (avg complexity: 4.0)
-    Docs:         1 task  (avg complexity: 2.0)
+    Setup:        2 tasks (avg complexity: 1.5)
+    Core:         5 tasks (avg complexity: 3.2)
+    Integration:  4 tasks (avg complexity: 3.0)
+    Testing:      2 tasks (avg complexity: 2.5)
+    Docs:         1 task  (avg complexity: 1.0)
 
-  Critical path:     T-001 -> T-003 -> T-005 -> T-007 (4 steps)
-  Parallel tracks:   2 identified
+  Critical path:     T-001 -> T-004 -> T-008 -> T-012 (4 steps)
+  Parallel tracks:   3 identified
+
+  Complexity guarantee:
+    All 14 tasks have complexity ≤ 4  ✓
+    No tasks require further splitting  ✓
 
   Files created:
     .claude/tasks/SPEC-003-user-authentication/state.json
@@ -266,10 +304,20 @@ Tasks generated successfully from SPEC-003!
     .claude/tasks/index.json (updated)
 
   Suggested first task:
-    T-001 (complexity: 2) - Create authentication Zod schemas
+    T-001 (complexity: 1) - Create authentication Zod schemas
     No dependencies, unblocks: T-002, T-003
 
   Ready to start implementing! Use the task runner to begin with T-001.
+```
+
+If any tasks still exceed complexity 4 after maximum iterations (5 passes):
+
+```
+  ⚠ Complexity warnings:
+    T-009 (complexity: 5) - FLAGGED for manual review. Use /replan to split.
+    T-012 (complexity: 6) - FLAGGED for manual review. Use /replan to split.
+
+  These tasks will be blocked from execution until split to complexity ≤ 4.
 ```
 
 ## Task Granularity
