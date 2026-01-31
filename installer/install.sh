@@ -40,6 +40,7 @@ SETUP_MCP=false
 PROJECT_MODE=false
 PROJECT_DIR=""
 DRY_RUN=false
+SKIP_EXTRAS=false
 
 usage() {
     echo -e "${CYAN}Claude Code Plugins Installer${NC}"
@@ -52,6 +53,7 @@ usage() {
     echo "  --project [dir]      Install into a project directory instead of user-level (~/.claude)"
     echo "                       Uses current directory if no dir specified"
     echo "  --setup-mcp          Run interactive MCP API key setup after installation"
+    echo "  --skip-extras        Skip recommended third-party plugins prompt"
     echo "  --dry-run            Show what would be installed without making changes"
     echo "  --list               List available plugins and profiles"
     echo "  --help               Show this help message"
@@ -340,6 +342,96 @@ merge_mcp_project() {
     echo -e "  ${GREEN}✓${NC} mcp-servers — $server_count servers merged into .mcp.json"
 }
 
+# ---------------------------------------------------------------------------
+# External plugin helpers
+# ---------------------------------------------------------------------------
+
+is_plugin_installed() {
+    local plugin_id="$1"
+    local installed_file="$HOME/.claude/plugins/installed_plugins.json"
+    [ -f "$installed_file" ] || return 1
+    jq -e --arg id "$plugin_id" '.plugins[$id] | length > 0' "$installed_file" &>/dev/null
+}
+
+is_marketplace_added() {
+    local name="$1"
+    local known_file="$HOME/.claude/plugins/known_marketplaces.json"
+    [ -f "$known_file" ] || return 1
+    jq -e --arg name "$name" '.[$name]' "$known_file" &>/dev/null
+}
+
+setup_external_plugins() {
+    local catalog="$SCRIPT_DIR/external-plugins.json"
+    [ -f "$catalog" ] || return 0
+
+    # Check if claude CLI is available
+    if ! command -v claude &>/dev/null; then
+        echo -e "${YELLOW}Claude CLI not found. Skipping external plugins.${NC}"
+        return 0
+    fi
+
+    # Build list of not-yet-installed plugins
+    local missing=()
+    local total
+    total=$(jq '.plugins | length' "$catalog")
+
+    for i in $(seq 0 $((total - 1))); do
+        local plugin_id name desc
+        plugin_id=$(jq -r ".plugins[$i].pluginId" "$catalog")
+        name=$(jq -r ".plugins[$i].name" "$catalog")
+        desc=$(jq -r ".plugins[$i].description" "$catalog")
+
+        if is_plugin_installed "$plugin_id"; then
+            echo -e "  ${GREEN}✓${NC} $name — already installed"
+        else
+            missing+=("$i")
+            echo -e "  ${YELLOW}○${NC} $name — $desc"
+        fi
+    done
+
+    [ ${#missing[@]} -eq 0 ] && {
+        echo -e "\n${GREEN}All recommended plugins are already installed!${NC}"
+        return 0
+    }
+
+    echo ""
+    echo -ne "Install ${#missing[@]} recommended plugin(s)? [Y/n]: "
+    read -r answer
+    [[ "$answer" =~ ^[Nn] ]] && return 0
+
+    # Install each missing plugin
+    for idx in "${missing[@]}"; do
+        local name marketplace repo plugin_id
+        name=$(jq -r ".plugins[$idx].name" "$catalog")
+        marketplace=$(jq -r ".plugins[$idx].marketplace" "$catalog")
+        repo=$(jq -r ".plugins[$idx].repo" "$catalog")
+        plugin_id=$(jq -r ".plugins[$idx].pluginId" "$catalog")
+
+        echo -e "\n${CYAN}Installing $name...${NC}"
+
+        # Add marketplace if not present
+        if ! is_marketplace_added "$marketplace"; then
+            echo -e "  Adding marketplace $repo..."
+            if claude plugin marketplace add "$repo" 2>&1; then
+                echo -e "  ${GREEN}✓${NC} Marketplace added"
+            else
+                echo -e "  ${RED}✗${NC} Failed to add marketplace $repo — skipping $name"
+                continue
+            fi
+        else
+            echo -e "  ${GREEN}✓${NC} Marketplace already registered"
+        fi
+
+        # Install plugin
+        echo -e "  Installing plugin..."
+        if claude plugin install "$plugin_id" 2>&1; then
+            echo -e "  ${GREEN}✓${NC} $name installed successfully"
+        else
+            echo -e "  ${RED}✗${NC} Failed to install $name"
+        fi
+    done
+}
+
 # Parse arguments
 while [[ $# -gt 0 ]]; do
     case $1 in
@@ -364,6 +456,10 @@ while [[ $# -gt 0 ]]; do
             ;;
         --setup-mcp)
             SETUP_MCP=true
+            shift
+            ;;
+        --skip-extras)
+            SKIP_EXTRAS=true
             shift
             ;;
         --dry-run)
@@ -498,6 +594,12 @@ if [ "$DRY_RUN" = true ]; then
             echo "    -> $CACHE_DIR/$plugin_name/$version"
         fi
     done
+    # Show external plugins that would be offered
+    if [ "$SKIP_EXTRAS" = false ] && [ -f "$SCRIPT_DIR/external-plugins.json" ]; then
+        echo ""
+        echo -e "  ${CYAN}Would also offer to install:${NC}"
+        jq -r '.plugins[] | "    \(.name) — \(.description)"' "$SCRIPT_DIR/external-plugins.json"
+    fi
     echo ""
     echo -e "${YELLOW}No changes were made (dry run).${NC}"
     exit 0
@@ -639,6 +741,16 @@ if [ "$SETUP_MCP" = true ] && [[ " ${INSTALLED[*]} " =~ " mcp-servers " ]]; then
     chmod 600 "$ENV_FILE"
     echo ""
     echo -e "${GREEN}API keys saved to${NC} $ENV_FILE"
+    echo ""
+fi
+
+# External plugins setup
+if [ "$SKIP_EXTRAS" = false ] && [ "$DRY_RUN" = false ]; then
+    echo ""
+    echo -e "${CYAN}Recommended Third-Party Plugins${NC}"
+    echo "The following plugins are recommended alongside this toolkit:"
+    echo ""
+    setup_external_plugins
     echo ""
 fi
 
