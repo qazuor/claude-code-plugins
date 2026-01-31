@@ -154,9 +154,71 @@ Task started!
 
 Show the task's subtasks (if any) as a checklist to guide implementation.
 
+**Always remind the user to follow TDD:**
+
+```
+Development approach: TDD (Red-Green-Refactor)
+  1. RED:      Write failing tests first (based on task test requirements)
+  2. GREEN:    Write minimum code to make tests pass
+  3. REFACTOR: Improve code while tests stay green
+
+Remember: No tests = not done. Implementation and tests are committed together.
+```
+
+## Step 5: Phase Boundary Check
+
+After the user completes a task and before suggesting the next one, check if a **phase boundary** has been crossed.
+
+A phase boundary is crossed when:
+- The completed task was the last remaining task in its phase (all tasks in that phase are now `completed`)
+- The next available task belongs to a different phase
+
+When a phase boundary is crossed:
+
+```
+Phase Complete: CORE
+====================
+
+All 4 core phase tasks are now complete!
+
+  Phase progress:
+    setup:        2/2 (100%)  DONE
+    core:         4/4 (100%)  DONE    <-- just completed
+    integration:  0/3 (0%)    next
+    testing:      0/2 (0%)
+    docs:         0/1 (0%)
+
+  Overall: 6/12 tasks (50%)
+
+The next tasks are in the INTEGRATION phase.
+Would you like to:
+  (a) Continue to the integration phase
+  (b) Review completed work first
+  (c) Stop here for now
+```
+
+**Always pause at phase boundaries.** This gives the user a natural checkpoint to review progress, adjust course, or take a break before continuing.
+
+## Step 6: Remind About State Updates
+
+After each task is completed, remind the user:
+
+```
+Remember: Task state has been updated.
+  - T-003 status: completed
+  - Quality gate: lint(pass) typecheck(pass) tests(pass)
+  - Progress: 6/12 (50%)
+  - Commit your changes with /commit before starting the next task.
+```
+
+**State updates are mandatory.** The task dashboard, next-task selection, and phase tracking all depend on accurate, up-to-date state.
+
 ## Notes
 
 - Never auto-start a task without user confirmation
 - If the user has in-progress tasks, always mention them before suggesting new ones
 - The quick win strategy helps maintain momentum; the critical path strategy helps when the project needs to move forward fastest
 - Always show the task description in full so the user knows exactly what to work on
+- **Always check for phase boundaries** when suggesting the next task
+- **Always update task state** after completion — never skip this step
+- **Always remind the user to commit** after completing a task
