@@ -291,6 +291,70 @@ jobs:
             echo "✓ All skill directories follow kebab-case convention"
           fi
 
+  command-format:
+    name: Validate command format
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check commands have YAML frontmatter
+        run: |
+          echo "Checking command frontmatter..."
+          errors=0
+          warnings=0
+          for cmd_file in plugins/*/commands/*.md; do
+            [ -f "$cmd_file" ] || continue
+            cmd_name=$(basename "$cmd_file" .md)
+
+            # Check for frontmatter (starts with ---)
+            first_line=$(head -n 1 "$cmd_file")
+            if [ "$first_line" != "---" ]; then
+              echo "::error file=$cmd_file::Command '$cmd_name' is missing YAML frontmatter"
+              errors=$((errors + 1))
+              continue
+            fi
+
+            # Check for closing ---
+            closing_line=$(sed -n '2,${/^---$/=;};' "$cmd_file" | head -n 1)
+            if [ -z "$closing_line" ]; then
+              echo "::error file=$cmd_file::Command '$cmd_name' has unclosed YAML frontmatter"
+              errors=$((errors + 1))
+              continue
+            fi
+
+            # Check for description field
+            frontmatter=$(sed -n "2,$((closing_line - 1))p" "$cmd_file")
+            if ! echo "$frontmatter" | grep -q "^description:"; then
+              echo "::warning file=$cmd_file::Command '$cmd_name' is missing recommended 'description' field"
+              warnings=$((warnings + 1))
+            fi
+          done
+          echo ""
+          echo "Results: $errors error(s), $warnings warning(s)"
+          if [ "$errors" -gt 0 ]; then
+            echo "::error::$errors command(s) failed format validation"
+            exit 1
+          fi
+
+      - name: Check command file naming convention
+        run: |
+          echo "Checking command naming conventions..."
+          errors=0
+          for cmd_file in plugins/*/commands/*.md; do
+            [ -f "$cmd_file" ] || continue
+            cmd_name=$(basename "$cmd_file" .md)
+            if ! echo "$cmd_name" | grep -qE '^[a-z0-9]+(-[a-z0-9]+)*$'; then
+              echo "::error::Command file '$cmd_name.md' does not follow kebab-case convention"
+              errors=$((errors + 1))
+            fi
+          done
+          if [ "$errors" -gt 0 ]; then
+            echo "::error::$errors command(s) have invalid naming"
+            exit 1
+          else
+            echo "✓ All command files follow kebab-case convention"
+          fi
+
   agent-format:
     name: Validate agent format
     runs-on: ubuntu-latest
