@@ -5,8 +5,9 @@
 
 set -euo pipefail
 
-TASKS_DIR=".claude/tasks"
-SPECS_DIR=".claude/specs"
+PROJECT_ROOT="${CLAUDE_PROJECT_DIR:-.}"
+TASKS_DIR="${PROJECT_ROOT}/.claude/tasks"
+SPECS_DIR="${PROJECT_ROOT}/.claude/specs"
 INDEX_FILE="${TASKS_DIR}/index.json"
 
 # Check if task index exists
