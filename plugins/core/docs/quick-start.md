@@ -62,13 +62,17 @@ The system supports 3 workflow levels based on task complexity:
 
 **Use for:** Bug fixes, small features, targeted refactoring
 
-**Process:** Simplified Planning -> TDD Implementation -> Quality Check -> Commit
+**Process:** Simplified Planning -> TDD Implementation (Red-Green-Refactor) -> Quality Check -> Commit
 
 ### Level 3: Full Feature (> 3 hours)
 
 **Use for:** Complete features, database changes, API changes, architecture changes
 
-**Process:** 4-phase workflow (Planning -> Implementation -> Validation -> Finalization)
+**Process:** SDD + TDD workflow (Plan Mode -> Spec -> Tasks -> TDD Development -> Done)
+
+**Methodology:** Combines **Spec Driven Development** (spec is the source of truth) with **Test Driven Development** (tests before code, Red-Green-Refactor).
+
+**See:** [development-workflow.md](development-workflow.md) for the full, detailed workflow.
 
 ---
 
@@ -82,34 +86,50 @@ The system supports 3 workflow levels based on task complexity:
 
 ### For Standard Tasks (Level 2)
 
+Follow **TDD (Red-Green-Refactor):**
+
 1. **Plan:** Define what you need to build
-2. **Test first:** Write a failing test
-3. **Implement:** Write code to pass the test
-4. **Refactor:** Clean up while tests stay green
-5. **Validate:** Run quality checks
-6. **Commit:** Stage specific files and commit
+2. **RED — Test first:** Write a failing test that defines expected behavior
+3. **GREEN — Implement:** Write the minimum code to make the test pass
+4. **REFACTOR:** Improve the code while tests stay green
+5. **Validate:** Run quality checks (lint, typecheck, ALL tests)
+6. **Commit:** Stage source files AND test files together, then commit
+
+**No tests = Not done.** Every change must include tests.
 
 ### For Features (Level 3)
 
-1. **Phase 1 - Planning:**
-   - Create PDR (Product Design Requirements)
-   - Create Technical Analysis
-   - Break down into atomic tasks
+Follow the **Development Workflow** defined in [development-workflow.md](development-workflow.md):
 
-2. **Phase 2 - Implementation:**
-   - Follow TDD for each task
-   - Commit after each task
-   - Update progress
+1. **Plan Mode — Discuss and Clarify:**
+   - Enter Plan Mode immediately
+   - Ask the user many questions (functional, technical, scope, testing, risks)
+   - Leave nothing to free interpretation
+   - Get explicit plan approval from the user
 
-3. **Phase 3 - Validation:**
-   - Run quality checks (lint, typecheck, tests)
-   - Security review
-   - Performance review
+2. **Specification — Generate Detailed Spec:**
+   - Run `/spec` to generate a formal specification
+   - Spec must be super detailed: user stories, technical approach, code examples, testing strategy, edge cases, error handling
+   - Get explicit spec approval from the user
 
-4. **Phase 4 - Finalization:**
-   - Update documentation
-   - Generate conventional commits
-   - Create PR
+3. **Tasks — Generate Atomic Task Breakdown:**
+   - Task-master generates ultra-granular atomic tasks from the approved spec
+   - Tasks are organized by phases (setup → core → integration → testing → docs → cleanup)
+   - No limit on number of tasks — granularity is preferred over brevity
+   - Get explicit task breakdown approval from the user
+
+4. **Development — Execute In Order with TDD:**
+   - Use `/next-task` to pick the next available task
+   - Write tests FIRST (RED), then implement (GREEN), then refactor
+   - Pass quality gates (lint, typecheck, ALL tests)
+   - Update task state after EVERY completed task
+   - Commit implementation + tests together atomically
+   - Pause between phases for user review
+
+5. **Done — All Tasks Completed:**
+   - All phases complete, all quality gates passed
+   - Documentation updated
+   - PR ready
 
 ---
 
@@ -160,20 +180,27 @@ Templates are available in the `templates/` directory:
 
 ### DO
 
-- Follow TDD (test first, code second)
+- Follow SDD + TDD (spec first, tests second, code third)
+- Write tests BEFORE implementation (Red-Green-Refactor)
+- Include unit tests for every public function
+- Include integration tests for API endpoints and service interactions
+- Include E2E tests for critical user flows
 - Keep tasks atomic (0.5-4 hours)
 - Write all code and comments in English
 - Run quality checks before finalizing
-- Commit incrementally per task
+- Commit implementation + tests together
 - Use schema validation for all inputs
 
 ### DON'T
 
-- Skip writing tests
+- Consider work "done" without tests (no tests = not done)
+- Write implementation before tests
+- Skip writing tests (ever, for any reason)
+- Commit implementation without corresponding tests
 - Create tasks longer than 4 hours (break them down)
 - Use `any` type (use `unknown` with type guards)
 - Use `git add .` (stage files individually)
-- Commit without running tests
+- Commit without running all tests
 
 ---
 
@@ -187,6 +214,7 @@ Templates are available in the `templates/` directory:
 - **[testing-standards.md](testing-standards.md):** Testing practices
 - **[architecture-patterns.md](architecture-patterns.md):** Architecture guide
 - **[atomic-commits.md](atomic-commits.md):** Git commit policy
+- **[development-workflow.md](development-workflow.md):** Full development workflow
 
 ### Agent Assistance
 
