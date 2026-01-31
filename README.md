@@ -3,7 +3,7 @@
 [![CI](https://github.com/qazuor/claude-code-plugins/actions/workflows/ci.yml/badge.svg)](https://github.com/qazuor/claude-code-plugins/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Plugins](https://img.shields.io/badge/Plugins-7-green.svg)](#plugins)
-[![Components](https://img.shields.io/badge/Components-159-orange.svg)](#plugins)
+[![Components](https://img.shields.io/badge/Components-157-orange.svg)](#plugins)
 
 A curated collection of plugins for [Claude Code](https://claude.ai/claude-code) — Anthropic's official CLI tool. Provides agents, commands, skills, hooks, templates, and MCP server configurations for professional software development.
 
@@ -19,7 +19,7 @@ cd claude-code-plugins
 
 | Plugin | Description | Components |
 |--------|-------------|------------|
-| **core** | Universal agents, commands, skills, docs, templates | 74 |
+| **core** | Universal agents, commands, skills, docs, templates | 72 |
 | **notifications** | Desktop notifications, TTS audio, stop beeps | 6 |
 | **frameworks-frontend** | Frontend framework agents and skills (React, Next.js, Astro, TanStack, and UI libraries) | 15 |
 | **frameworks-backend** | Backend framework agents and skills (NestJS, Hono, Drizzle, Prisma) | 8 |
@@ -27,7 +27,7 @@ cd claude-code-plugins
 | **task-master** | Planning, specs, task management, quality gates | 24 |
 | **mcp-servers** | 30 pre-configured MCP server definitions | 30 |
 
-**Total: 159 components across 7 plugins**
+**Total: 157 components across 7 plugins**
 
 ## Installation
 
@@ -147,8 +147,8 @@ Universal tools for any software project.
 - Design: `frontend-design`, `react-performance`
 - SEO/i18n: `i18n-patterns`, `seo-patterns`
 
-**10 Docs** — Standards and references
-**9 Templates** — Project scaffolding, CI/CD, brand configuration
+**11 Docs** — Standards and references
+**6 Templates** — Project scaffolding, CI/CD, brand configuration
 
 ### Notifications (`notifications@qazuor`)
 
