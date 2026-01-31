@@ -272,12 +272,48 @@ Tasks generated successfully from SPEC-003!
   Ready to start implementing! Use the task runner to begin with T-001.
 ```
 
+## Task Granularity
+
+Tasks generated from the spec MUST be **ultra-granular and atomic**. There is **no maximum number of tasks** — it is far better to have 30+ small, clear tasks than 8 large, ambiguous ones. Each task should:
+
+- Be completable independently
+- Touch a focused set of files (ideally 1-5)
+- Have clear start and end conditions
+- **Include specific test requirements** (what unit tests, integration tests, and E2E tests to write)
+- Be verifiable through quality gates
+
+Tasks MUST be organized by phases (setup → core → integration → testing → docs → cleanup). Phase boundaries serve as **natural pause points** where the user can review progress and adjust course before continuing to the next phase.
+
+## TDD and Testing Requirements
+
+Every task that produces code MUST include test requirements in its description. **No tests = not done.**
+
+### Test Requirements Per Task
+
+Each task description MUST specify:
+
+1. **Unit tests** — Functions to test, behaviors to verify, edge cases to cover
+2. **Integration tests** (if applicable) — Interactions to test, endpoints to verify
+3. **Test files** — Exact file paths for test files to create or modify
+4. **Test expectations** — What assertions to make, what outcomes to verify
+
+### How SDD+TDD Applies to Task Generation
+
+The spec provides the acceptance criteria (SDD). Each acceptance criterion translates to one or more test cases. When generating tasks:
+
+- Extract test cases from the spec's user story acceptance criteria
+- Extract test cases from the spec's edge cases section
+- Extract test cases from the spec's error handling section
+- Distribute test cases across tasks: each task gets the tests relevant to its scope
+- Core phase tasks include unit tests (TDD: write test first, then implement)
+- Integration phase tasks include integration tests (TDD: write test first, then implement)
+- Testing phase tasks include cross-cutting E2E tests
+
 ## Error Handling
 
 - **Spec file not found**: Report the error and ask user to provide the correct path
 - **Metadata file not found**: Try to infer metadata from spec.md frontmatter, warn the user
 - **Empty spec**: Report that the spec has insufficient content and suggest reviewing it
-- **Task atomizer produces > 15 tasks**: Warn the user and suggest splitting the spec into phases
 - **Circular dependencies detected**: Auto-fix using dependency-grapher suggestions and report what was changed
 - **`.claude/tasks/` directory doesn't exist**: Create it
 - **Re-generating tasks for existing spec**: Warn user that existing state.json will be overwritten, ask for confirmation
