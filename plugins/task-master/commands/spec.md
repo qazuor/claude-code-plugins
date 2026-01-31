@@ -21,6 +21,79 @@ The user may provide a requirement description as an argument. If no argument is
 
 Store the user's response as `REQUIREMENT`.
 
+## Step 0: Plan Mode — Mandatory Questioning Phase
+
+**CRITICAL — Before anything else, enter Plan Mode and ask the user many questions.**
+
+This step ensures that NOTHING is left to free interpretation during development. The goal is to eliminate ALL ambiguity before writing a single line of spec.
+
+### 0a. Enter Plan Mode
+
+Immediately enter Plan Mode. Do NOT proceed to overlap analysis or spec writing until this phase is complete and the user has approved the plan.
+
+### 0b. Ask Comprehensive Questions
+
+Ask the user questions across ALL of these categories. Do not skip any category. It is better to ask too many questions than too few.
+
+**Functional Requirements:**
+- What exactly should happen from the user's perspective?
+- What are all the possible user flows (happy path, error path, edge cases)?
+- What happens on success? On failure?
+- Are there different user roles or permissions involved?
+- What data is involved? What are the validation rules?
+- What are the acceptance criteria?
+
+**Technical Requirements:**
+- Which parts of the codebase are affected?
+- Are there architectural decisions to make?
+- Are database changes needed? What tables, columns, migrations?
+- Are there API changes? New or modified endpoints?
+- Are there performance requirements or constraints?
+- Are there security considerations?
+
+**Scope Boundaries:**
+- What is explicitly IN scope?
+- What is explicitly OUT of scope?
+- Are there related features that should NOT be touched?
+- What is the minimum viable version vs nice-to-have?
+
+**Testing Strategy (CRITICAL — no tests = not done):**
+- What unit tests are needed for each new/modified component?
+- Which service interactions need integration tests?
+- Which API endpoints need integration tests (success, error, auth, validation)?
+- Which user flows need E2E tests?
+- What specific edge cases MUST have dedicated tests?
+- For bug fixes: what regression test reproduces the original bug?
+- What existing tests might be affected or need updating?
+- What test fixtures, mocks, or test utilities are needed?
+
+**Dependencies and Risks:**
+- Are there external dependencies needed?
+- Are there internal dependencies or blockers?
+- What could go wrong? What are the risks?
+- Are there backwards compatibility concerns?
+
+### 0c. Question Guidelines
+
+- **Do NOT assume.** If something is unclear, ask.
+- **Do NOT interpret freely.** If the answer is ambiguous, ask for clarification.
+- **Ask follow-up questions.** One answer often reveals the need for more questions.
+- **Validate understanding.** Summarize what you understood and ask the user to confirm.
+- **10-20 questions is normal** for a medium-to-complex feature. The user prefers thorough questioning over bad assumptions during development.
+
+### 0d. Get Plan Approval
+
+After all questions are answered, present a summary of the plan:
+1. What will be built (functional description)
+2. How it will be built (technical approach)
+3. What files will be created/modified
+4. What the user flows look like
+5. What the edge cases and error handling look like
+6. What the testing strategy is
+7. What is out of scope
+
+**The user must explicitly approve this plan before proceeding to Step 1.**
+
 ## Step 1: Overlap Analysis
 
 Before creating a new spec, check for overlaps with existing specifications and tasks.
@@ -116,7 +189,22 @@ Reasoning: [explanation]
 Proceed with spec-lite format? (yes/adjust/override to full)
 ```
 
-## Step 3: Enter Plan Mode and Write Spec
+## Step 3: Write Spec from Plan Mode Output
+
+Use the approved plan from Step 0 as the foundation for the specification. The spec must be **super detailed** — it is the contract for development. Everything a developer needs to implement the feature should be in the spec.
+
+**The spec MUST include (where applicable):**
+- User stories with detailed acceptance criteria (Given/When/Then) — each criterion becomes a test case
+- Technical approach with specific file paths, patterns, and architecture decisions
+- Code examples showing expected patterns, API shapes, and data structures
+- Data model changes with exact table/column definitions
+- API design with request/response examples — each becomes an integration test
+- **Testing strategy** — explicit section defining unit, integration, and E2E test requirements
+- Error handling for every failure scenario — each becomes an error test
+- Edge cases explicitly documented — each becomes an edge case test
+- Performance and security considerations
+
+**Every spec MUST include a Testing Strategy section.** The spec defines WHAT to test (SDD), and the development process uses TDD to implement it. No tests = not done.
 
 ### 3a. Generate Spec ID
 
@@ -210,9 +298,13 @@ Tags should be derived from the spec content: affected components, technologies,
 
 Create or update `.claude/specs/index.json` to include the new spec entry. If the file does not exist, create it as an array. Add an entry with `specId`, `title`, `type`, `complexity`, `status`, and `path`.
 
-## Step 5: Generate Tasks
+## Step 5: Generate Ultra-Granular Atomic Tasks
 
 After spec is published, invoke the **task-from-spec** skill to generate tasks from the approved specification.
+
+**CRITICAL — Task Granularity:** Tasks MUST be extremely granular and atomic. Each task should be independently completable with a focused set of files. There is **no maximum number of tasks** — it is far better to have 30+ small, clear tasks than 8 large, ambiguous ones. Granularity is always preferred over brevity.
+
+**Phase Organization:** Tasks MUST be organized by phases (setup → core → integration → testing → docs → cleanup). Phases serve as natural pause points where the user can review progress and adjust course before continuing.
 
 The skill should:
 
@@ -307,4 +399,6 @@ Specification created successfully!
   Location: .claude/tasks/SPEC-NNN-slug/
 
   Next step: Run /next-task to start working on the first available task.
+  Remember: Update task state after completing each task!
+  Phases will pause for review between transitions.
 ```
