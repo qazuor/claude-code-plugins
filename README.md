@@ -3,7 +3,7 @@
 [![CI](https://github.com/qazuor/claude-code-plugins/actions/workflows/ci.yml/badge.svg)](https://github.com/qazuor/claude-code-plugins/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Plugins](https://img.shields.io/badge/Plugins-7-green.svg)](#plugins)
-[![Components](https://img.shields.io/badge/Components-157-orange.svg)](#plugins)
+[![Components](https://img.shields.io/badge/Components-158-orange.svg)](#plugins)
 
 A curated collection of plugins for [Claude Code](https://claude.ai/claude-code) — Anthropic's official CLI tool. Provides agents, commands, skills, hooks, templates, and MCP server configurations for professional software development.
 
@@ -21,13 +21,13 @@ cd claude-code-plugins
 |--------|-------------|------------|
 | **core** | Universal agents, commands, skills, docs, templates | 72 |
 | **notifications** | Desktop notifications, TTS audio, stop beeps | 6 |
-| **frameworks-frontend** | Frontend framework agents and skills (React, Next.js, Astro, TanStack, and UI libraries) | 15 |
+| **frameworks-frontend** | Frontend framework agents and skills (React, Next.js, Astro, TanStack, and UI libraries) | 16 |
 | **frameworks-backend** | Backend framework agents and skills (NestJS, Hono, Drizzle, Prisma) | 8 |
 | **frameworks-shared** | Shared infrastructure skills (Docker, GitHub Actions) | 2 |
 | **task-master** | Planning, specs, task management, quality gates | 24 |
 | **mcp-servers** | 30 pre-configured MCP server definitions | 30 |
 
-**Total: 157 components across 7 plugins**
+**Total: 158 components across 7 plugins**
 
 ## Installation
 
@@ -169,11 +169,11 @@ Frontend framework expertise.
 - `astro-engineer` — Astro islands, SSG/SSR, Content Collections
 - `tanstack-start-engineer` — TanStack Start full-stack
 
-**11 Skills:**
-- `react-patterns`, `react-hook-form-patterns`, `tanstack-query-patterns`
-- `shadcn-specialist`, `zustand-patterns`, `tanstack-router-patterns`
-- `tanstack-table-patterns`, `nextjs-patterns`, `astro-patterns`
-- `vercel-specialist`, `tanstack-patterns`
+**12 Skills:**
+- `react-patterns`, `vercel-react-best-practices`, `react-hook-form-patterns`
+- `tanstack-query-patterns`, `shadcn-specialist`, `zustand-patterns`
+- `tanstack-router-patterns`, `tanstack-table-patterns`, `nextjs-patterns`
+- `astro-patterns`, `vercel-specialist`, `tanstack-patterns`
 
 ### Frameworks Backend (`frameworks-backend@qazuor`)
 
