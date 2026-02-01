@@ -1,7 +1,7 @@
 {
   "name": "frameworks-shared",
   "version": "1.0.0",
-  "description": "Shared infrastructure skills for Docker and GitHub Actions used across frontend and backend",
+  "description": "Shared infrastructure and cross-framework skills for Docker, GitHub Actions, and Better Auth used across frontend and backend",
   "author": {
     "name": "Qazuor",
     "url": "https://github.com/qazuor"
@@ -13,6 +13,8 @@
     "shared",
     "docker",
     "github-actions",
+    "better-auth",
+    "authentication",
     "infrastructure",
     "devops",
     "patterns"
