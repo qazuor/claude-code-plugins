@@ -24,7 +24,7 @@ PIPER_MODEL="${HOME}/.local/share/piper/voices/en_US-hfc_male-medium.onnx"
 PIPER_CONFIG="${PIPER_MODEL}.json"
 LENGTH_SCALE=0.8
 VOLUME=0.3
-LOG_DIR=".claude/.log"
+LOG_DIR="${CLAUDE_PROJECT_DIR:-.}/.claude/.log"
 LOG_FILE="${LOG_DIR}/notifications.log"
 
 # ---------------------------------------------------------------------------
@@ -54,7 +54,7 @@ OS="$(detect_os)"
 # Read JSON payload from stdin (official Claude Code hook format)
 # ---------------------------------------------------------------------------
 payload="$(cat)"
-message="$(echo "$payload" | jq -r '.message // empty')"
+message="$(echo "$payload" | jq -r '.message // empty' 2>/dev/null)" || message=""
 
 # If jq failed or message is empty, try using the raw payload as the message
 if [[ -z "$message" ]]; then

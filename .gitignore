@@ -24,3 +24,11 @@ node_modules/
 
 # Local settings
 .claude/settings.local.json
+
+# Claude Code auto-generated context files
+**/CLAUDE.md
+.claude/
+
+# Authentication tokens
+.npmrc
+.netrc

@@ -217,7 +217,7 @@
         "averageComplexity": {
           "type": "number",
           "minimum": 0,
-          "maximum": 10
+          "maximum": 4
         }
       },
       "additionalProperties": false

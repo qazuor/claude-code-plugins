@@ -146,6 +146,45 @@ done
 echo ""
 
 # ---------------------------------------------------------------------------
+# Test 7: hooks.json files are valid JSON
+# ---------------------------------------------------------------------------
+echo "Test: hooks.json validity"
+if command -v jq &> /dev/null; then
+    hooks_found=false
+    for hooks_file in "$REPO_DIR"/plugins/*/hooks/hooks.json; do
+        [ -f "$hooks_file" ] || continue
+        hooks_found=true
+        plugin_name=$(basename "$(dirname "$(dirname "$hooks_file")")")
+        if jq empty "$hooks_file" 2>/dev/null; then
+            pass "$plugin_name/hooks/hooks.json is valid JSON"
+        else
+            fail "$plugin_name/hooks/hooks.json is invalid JSON"
+        fi
+    done
+    if [ "$hooks_found" = false ]; then
+        echo -e "  ${YELLOW}SKIP${NC} No hooks.json files found"
+    fi
+else
+    echo -e "  ${YELLOW}SKIP${NC} jq not installed, skipping JSON tests"
+fi
+echo ""
+
+# ---------------------------------------------------------------------------
+# Test 8: hooks.json contains required placeholders
+# ---------------------------------------------------------------------------
+echo "Test: hooks.json placeholder validation"
+for hooks_file in "$REPO_DIR"/plugins/*/hooks/hooks.json; do
+    [ -f "$hooks_file" ] || continue
+    plugin_name=$(basename "$(dirname "$(dirname "$hooks_file")")")
+    if grep -q '\${CLAUDE_PLUGIN_ROOT}' "$hooks_file"; then
+        pass "$plugin_name/hooks/hooks.json uses \${CLAUDE_PLUGIN_ROOT} placeholder"
+    else
+        fail "$plugin_name/hooks/hooks.json missing \${CLAUDE_PLUGIN_ROOT} placeholder (hardcoded paths?)"
+    fi
+done
+echo ""
+
+# ---------------------------------------------------------------------------
 # Summary
 # ---------------------------------------------------------------------------
 echo "================================"

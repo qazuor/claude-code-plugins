@@ -86,11 +86,19 @@ if [ "$PROJECT_MODE" = true ]; then
     fi
 
     # Count symlinks that point into our plugins repo
+    # Detect the repo dir by checking where this script lives
+    SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+    REPO_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
+
     link_count=0
     for dir in agents commands skills docs templates; do
         if [ -d "$CLAUDE_DIR/$dir" ]; then
             while IFS= read -r link; do
-                link_count=$((link_count + 1))
+                link_target=$(readlink -f "$link" 2>/dev/null) || continue
+                # Only count symlinks that point into our plugin repo
+                if [[ "$link_target" == "$REPO_DIR"/* ]]; then
+                    link_count=$((link_count + 1))
+                fi
             done < <(find "$CLAUDE_DIR/$dir" -maxdepth 1 -type l 2>/dev/null)
         fi
     done
@@ -100,7 +108,7 @@ if [ "$PROJECT_MODE" = true ]; then
         exit 0
     fi
 
-    echo "Found $link_count component symlinks in $CLAUDE_DIR"
+    echo "Found $link_count plugin symlinks in $CLAUDE_DIR"
     echo ""
     read -rp "Remove all plugin symlinks from this project? (y/N) " confirm
     if [[ ! "$confirm" =~ ^[Yy]$ ]]; then
@@ -108,14 +116,17 @@ if [ "$PROJECT_MODE" = true ]; then
         exit 0
     fi
 
-    # Remove symlinks from each component directory
+    # Remove only symlinks that point into our plugin repo
     removed=0
     for dir in agents commands skills docs templates; do
         target="$CLAUDE_DIR/$dir"
         [ -d "$target" ] || continue
         while IFS= read -r link; do
-            rm -f "$link"
-            removed=$((removed + 1))
+            link_target=$(readlink -f "$link" 2>/dev/null) || continue
+            if [[ "$link_target" == "$REPO_DIR"/* ]]; then
+                rm -f "$link"
+                removed=$((removed + 1))
+            fi
         done < <(find "$target" -maxdepth 1 -type l 2>/dev/null)
         # Remove directory if empty
         rmdir "$target" 2>/dev/null || true
@@ -173,6 +184,23 @@ else
         exit 0
     fi
 
+    # Clean plugin MCP servers from ~/.claude.json (must happen before cache removal)
+    claude_json="$HOME/.claude.json"
+    manifest_file="$CACHE_DIR/.mcp-manifest.json"
+    if [ -f "$manifest_file" ] && [ -f "$claude_json" ] && command -v jq &> /dev/null; then
+        server_names=$(cat "$manifest_file")
+        tmp_file=$(mktemp "${claude_json}.XXXXXX")
+        if jq --argjson names "$server_names" '
+            .mcpServers |= with_entries(select(.key as $k | ($names | index($k)) | not))
+        ' "$claude_json" > "$tmp_file"; then
+            chmod 600 "$tmp_file"
+            mv "$tmp_file" "$claude_json"
+            echo -e "${GREEN}Cleaned${NC} plugin MCP servers from ~/.claude.json"
+        else
+            rm -f "$tmp_file"
+        fi
+    fi
+
     # Remove symlinks
     rm -rf "$CACHE_DIR"
     echo -e "${GREEN}Removed${NC} $CACHE_DIR"
@@ -183,9 +211,24 @@ else
         tmp_file=$(mktemp "${SETTINGS_FILE}.XXXXXX")
         if jq 'if .enabledPlugins then .enabledPlugins |= with_entries(select(.key | endswith("@qazuor") | not)) else . end' "$SETTINGS_FILE" > "$tmp_file"; then
             mv "$tmp_file" "$SETTINGS_FILE"
-            echo -e "${GREEN}Cleaned${NC} $SETTINGS_FILE"
+            echo -e "${GREEN}Cleaned${NC} enabledPlugins from $SETTINGS_FILE"
         else
             echo -e "${RED}Failed to clean settings.json. Manual cleanup may be needed.${NC}"
+            rm -f "$tmp_file"
+        fi
+
+        # Clean plugin hooks (only entries with _source marker)
+        tmp_file=$(mktemp "${SETTINGS_FILE}.XXXXXX")
+        if jq '
+            if .hooks then
+                .hooks |= with_entries(
+                    .value |= map(select(._source != "qazuor-plugins"))
+                ) | .hooks |= with_entries(select(.value | length > 0))
+            else . end
+        ' "$SETTINGS_FILE" > "$tmp_file"; then
+            mv "$tmp_file" "$SETTINGS_FILE"
+            echo -e "${GREEN}Cleaned${NC} plugin hooks from $SETTINGS_FILE"
+        else
             rm -f "$tmp_file"
         fi
     fi

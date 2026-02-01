@@ -38,6 +38,12 @@ if ! command -v jq &> /dev/null; then
     exit 1
 fi
 
+if ! command -v git &> /dev/null; then
+    echo -e "${RED}ERROR: git is required but not installed.${NC}"
+    echo "Install it with: sudo apt install git (Linux) or brew install git (macOS)"
+    exit 1
+fi
+
 echo -e "${CYAN}Claude Code Plugins — Updater${NC}"
 echo ""
 
@@ -63,8 +69,7 @@ for plugin_dir in "$CACHE_DIR"/*/; do
     [ -d "$plugin_dir" ] || continue
     for version_dir in "$plugin_dir"/*/; do
         if [ -L "$version_dir" ]; then
-            # Use readlink without -f to avoid following chains unsafely
-            target=$(readlink "$version_dir" 2>/dev/null) || {
+            target=$(readlink -f "$version_dir" 2>/dev/null) || {
                 echo -e "  ${YELLOW}!${NC} $(basename "$plugin_dir")@qazuor — unreadable symlink"
                 BROKEN=$((BROKEN + 1))
                 continue

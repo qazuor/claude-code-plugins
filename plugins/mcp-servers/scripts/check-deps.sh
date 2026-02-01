@@ -4,11 +4,15 @@ set -euo pipefail
 # MCP Servers — Dependency Checker
 # Verifies that required tools and API keys are available for each MCP server.
 
-GREEN='\033[0;32m'
-YELLOW='\033[1;33m'
-RED='\033[0;31m'
-CYAN='\033[0;36m'
-NC='\033[0m'
+if [ -t 1 ]; then
+    GREEN='\033[0;32m'
+    YELLOW='\033[1;33m'
+    RED='\033[0;31m'
+    CYAN='\033[0;36m'
+    NC='\033[0m'
+else
+    GREEN='' YELLOW='' RED='' CYAN='' NC=''
+fi
 
 # Check project-level env first, then user-level
 PROJECT_ROOT="${CLAUDE_PROJECT_DIR:-.}"
@@ -112,9 +116,9 @@ for entry in "${API_KEYS[@]}"; do
     key="${entry%%:*}"
     name="${entry#*:}"
     if check_env "$key" "$name"; then
-        ((PASS++))
+        PASS=$((PASS + 1))
     else
-        ((WARN++))
+        WARN=$((WARN + 1))
     fi
 done
 echo ""
@@ -128,9 +132,9 @@ for entry in "${CONN_KEYS[@]}"; do
     key="${entry%%:*}"
     name="${entry#*:}"
     if check_env "$key" "$name"; then
-        ((PASS++))
+        PASS=$((PASS + 1))
     else
-        ((WARN++))
+        WARN=$((WARN + 1))
     fi
 done
 echo ""

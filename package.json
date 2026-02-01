@@ -1,5 +1,6 @@
 {
   "name": "@qazuor/claude-code-plugins",
+  "private": true,
   "version": "1.0.0",
   "description": "Marketplace of Claude Code plugins — agents, commands, skills, hooks, templates, and MCP server configurations",
   "author": {
@@ -10,6 +11,10 @@
     "type": "git",
     "url": "https://github.com/qazuor/claude-code-plugins.git"
   },
+  "bugs": {
+    "url": "https://github.com/qazuor/claude-code-plugins/issues"
+  },
+  "homepage": "https://github.com/qazuor/claude-code-plugins#readme",
   "license": "MIT",
   "keywords": [
     "claude-code",

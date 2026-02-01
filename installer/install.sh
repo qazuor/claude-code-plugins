@@ -19,6 +19,15 @@ PLUGINS_DIR="$REPO_DIR/plugins"
 CACHE_DIR="$HOME/.claude/plugins/cache/qazuor"
 SETTINGS_FILE="$HOME/.claude/settings.json"
 
+# Cleanup temp files on interrupt/error
+_CLEANUP_FILES=()
+cleanup() {
+    for f in "${_CLEANUP_FILES[@]}"; do
+        rm -f "$f" 2>/dev/null
+    done
+}
+trap cleanup EXIT
+
 # ---------------------------------------------------------------------------
 # Colors (auto-disable when stdout is not a terminal)
 # ---------------------------------------------------------------------------
@@ -119,6 +128,10 @@ install_plugin() {
     fi
 
     version=$(jq -r '.version // "0.0.0"' "$plugin_dir/.claude-plugin/plugin.json") || true
+    if [ -z "$version" ]; then
+        echo -e "  ${YELLOW}!${NC} Could not read version from $plugin_dir, using 0.0.0"
+        version="0.0.0"
+    fi
     target_dir="$CACHE_DIR/$plugin_name/$version"
 
     # Create parent directory safely (verify it's not a symlink to elsewhere)
@@ -257,7 +270,7 @@ install_plugin_project() {
     echo -e "  ${GREEN}✓${NC} $plugin_name — $components components linked"
 }
 
-merge_hooks_project() {
+merge_hooks() {
     local plugin_dir="$1"
     local settings_file="$2"
 
@@ -279,14 +292,24 @@ merge_hooks_project() {
     }
 
     # Merge into settings file (append to existing event arrays)
+    # First strip existing plugin hooks (makes re-install idempotent)
     local current
     current=$(cat "$settings_file")
+    current=$(echo "$current" | jq '
+        if .hooks then
+            .hooks |= with_entries(
+                .value |= map(select(._source != "qazuor-plugins"))
+            )
+        else . end
+    ')
+
+    # Merge with _source tag for clean uninstall
     local tmp_file
     tmp_file=$(mktemp "${settings_file}.XXXXXX")
     if echo "$current" | jq --argjson new "$new_hooks" '
         .hooks = ((.hooks // {}) as $existing |
             ($new | to_entries | reduce .[] as $entry ($existing;
-                .[$entry.key] = ((.[$entry.key] // []) + $entry.value)
+                .[$entry.key] = ((.[$entry.key] // []) + ($entry.value | map(. + {"_source": "qazuor-plugins"})))
             ))
         )
     ' > "$tmp_file"; then
@@ -302,7 +325,7 @@ merge_hooks_project() {
     echo -e "  ${GREEN}✓${NC} $(basename "$plugin_dir") — $hook_count hooks merged"
 }
 
-merge_mcp_project() {
+merge_mcp() {
     local plugin_dir="$1"
     local target_dir="$2"
 
@@ -340,6 +363,64 @@ merge_mcp_project() {
     local server_count
     server_count=$(echo "$mcp_servers" | jq 'length')
     echo -e "  ${GREEN}✓${NC} mcp-servers — $server_count servers merged into .mcp.json"
+}
+
+merge_mcp_user() {
+    local plugin_dir="$1"
+    local claude_json="$HOME/.claude.json"
+    local mcp_source="$plugin_dir/.mcp.json"
+    [ -f "$mcp_source" ] || return 0
+
+    # Extract mcpServers
+    local mcp_servers
+    mcp_servers=$(jq '.mcpServers // {}' "$mcp_source") || {
+        echo -e "  ${YELLOW}!${NC} Failed to parse .mcp.json"
+        return 0
+    }
+
+    # Add "type": "stdio" where command exists and type is missing
+    mcp_servers=$(echo "$mcp_servers" | jq '
+        with_entries(
+            if .value.command and (.value.type | not) then
+                .value += {"type": "stdio"}
+            else . end
+        )
+    ')
+
+    # Ensure ~/.claude.json exists
+    [ -f "$claude_json" ] || echo '{}' > "$claude_json"
+
+    # Save manifest for uninstall (list of server names we offer to add)
+    local manifest_dir="$CACHE_DIR"
+    mkdir -p "$manifest_dir"
+    echo "$mcp_servers" | jq '[keys[]]' > "$manifest_dir/.mcp-manifest.json"
+
+    # Only add servers that DON'T already exist (user's config takes precedence)
+    local current tmp_file
+    current=$(cat "$claude_json")
+    tmp_file=$(mktemp "${claude_json}.XXXXXX")
+    if echo "$current" | jq --argjson new "$mcp_servers" '
+        .mcpServers = ((.mcpServers // {}) as $existing |
+            ($new | with_entries(select(.key as $k | $existing[$k] | not))) + $existing
+        )
+    ' > "$tmp_file"; then
+        chmod 600 "$tmp_file"
+        mv "$tmp_file" "$claude_json"
+    else
+        echo -e "  ${YELLOW}!${NC} Failed to merge MCP servers"
+        rm -f "$tmp_file"
+        return 0
+    fi
+
+    # Count how many were actually added
+    local existing_count new_total added
+    existing_count=$(echo "$current" | jq '.mcpServers // {} | length')
+    new_total=$(jq '.mcpServers | length' "$claude_json")
+    added=$((new_total - existing_count))
+    local skipped=$(($(echo "$mcp_servers" | jq 'length') - added))
+
+    echo -e "  ${GREEN}+${NC} $added servers added to ~/.claude.json"
+    [ "$skipped" -gt 0 ] && echo -e "  ${YELLOW}~${NC} $skipped servers skipped (already configured)"
 }
 
 # ---------------------------------------------------------------------------
@@ -436,10 +517,20 @@ setup_external_plugins() {
 while [[ $# -gt 0 ]]; do
     case $1 in
         --profile)
+            if [[ -z "${2:-}" || "${2:-}" == --* ]]; then
+                echo -e "${RED}ERROR: --profile requires a value${NC}"
+                usage
+                exit 1
+            fi
             PROFILE="$2"
             shift 2
             ;;
         --enable)
+            if [[ -z "${2:-}" || "${2:-}" == --* ]]; then
+                echo -e "${RED}ERROR: --enable requires a plugin name${NC}"
+                usage
+                exit 1
+            fi
             ENABLE_PLUGINS+=("$2")
             shift 2
             ;;
@@ -592,6 +683,8 @@ if [ "$DRY_RUN" = true ]; then
         else
             version=$(jq -r '.version // "0.0.0"' "$plugin_dir/.claude-plugin/plugin.json") || true
             echo "    -> $CACHE_DIR/$plugin_name/$version"
+            [ -f "$plugin_dir/hooks/hooks.json" ] && echo "    hooks: merged into ~/.claude/settings.json"
+            [ -f "$plugin_dir/.mcp.json" ] && echo "    mcp: merged into ~/.claude.json (skip existing)"
         fi
     done
     # Show external plugins that would be offered
@@ -643,7 +736,7 @@ if [ "$PROJECT_MODE" = true ]; then
                 fi
                 HOOKS_FOUND=true
             fi
-            merge_hooks_project "$plugin_dir" "$LOCAL_SETTINGS"
+            merge_hooks "$plugin_dir" "$LOCAL_SETTINGS"
         fi
     done
     if [ "$HOOKS_FOUND" = true ]; then
@@ -655,7 +748,7 @@ if [ "$PROJECT_MODE" = true ]; then
         plugin_dir="$PLUGINS_DIR/$plugin_name"
         if [ -f "$plugin_dir/.mcp.json" ]; then
             echo -e "${CYAN}Merging MCP servers...${NC}"
-            merge_mcp_project "$plugin_dir" "$PROJECT_DIR"
+            merge_mcp "$plugin_dir" "$PROJECT_DIR"
             echo ""
             break  # Only one plugin has .mcp.json
         fi
@@ -683,6 +776,31 @@ else
         update_settings "${INSTALLED[@]}"
         echo ""
     fi
+
+    # Merge hooks into ~/.claude/settings.json
+    HOOKS_FOUND=false
+    for plugin_name in "${INSTALLED[@]}"; do
+        plugin_dir="$PLUGINS_DIR/$plugin_name"
+        if [ -f "$plugin_dir/hooks/hooks.json" ]; then
+            if [ "$HOOKS_FOUND" = false ]; then
+                echo -e "${CYAN}Merging hooks...${NC}"
+                HOOKS_FOUND=true
+            fi
+            merge_hooks "$plugin_dir" "$SETTINGS_FILE"
+        fi
+    done
+    [ "$HOOKS_FOUND" = true ] && echo ""
+
+    # Merge MCP servers into ~/.claude.json
+    for plugin_name in "${INSTALLED[@]}"; do
+        plugin_dir="$PLUGINS_DIR/$plugin_name"
+        if [ -f "$plugin_dir/.mcp.json" ]; then
+            echo -e "${CYAN}Merging MCP servers...${NC}"
+            merge_mcp_user "$plugin_dir"
+            echo ""
+            break  # Only one plugin has .mcp.json
+        fi
+    done
 fi
 
 # MCP API key setup
@@ -795,11 +913,17 @@ if [ "$PROJECT_MODE" = true ]; then
 else
     echo -e "Installed ${GREEN}${#INSTALLED[@]}${NC} plugins to $CACHE_DIR"
     echo ""
+    echo "Files updated:"
+    echo "  $CACHE_DIR/         (plugin symlinks)"
+    echo "  $SETTINGS_FILE      (enabledPlugins + hooks)"
+    [ -f "$HOME/.claude.json" ] && \
+        echo "  ~/.claude.json               (MCP servers)"
+    echo ""
     echo "Next steps:"
     echo "  1. Open Claude Code in any project"
     echo "  2. Try /help to see available commands"
     echo "  3. Try /quality-check to validate your code"
     echo ""
-    echo "To update: cd $(basename "$REPO_DIR") && git pull"
+    echo "To update: cd $REPO_DIR && git pull"
     echo "  (symlinks mean updates are instant)"
 fi
