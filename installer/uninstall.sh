@@ -28,6 +28,43 @@ else
     RED='' GREEN='' YELLOW='' CYAN='' NC=''
 fi
 
+GLOBAL_RULES_MARKER_BEGIN="<!-- qazuor-plugins:global-rules:begin -->"
+GLOBAL_RULES_MARKER_END="<!-- qazuor-plugins:global-rules:end -->"
+
+remove_global_rules() {
+    local file="$1"
+    [ -f "$file" ] || return 0
+    if ! grep -qF "$GLOBAL_RULES_MARKER_BEGIN" "$file" 2>/dev/null; then
+        return 0
+    fi
+
+    local tmp_file tmp_clean
+    tmp_file=$(mktemp "${file}.XXXXXX")
+    awk -v begin="$GLOBAL_RULES_MARKER_BEGIN" -v end="$GLOBAL_RULES_MARKER_END" '
+        $0 == begin { skip=1; next }
+        $0 == end   { skip=0; next }
+        !skip       { print }
+    ' "$file" > "$tmp_file"
+
+    # Remove trailing blank lines using a second awk pass (portable)
+    tmp_clean=$(mktemp "${file}.XXXXXX")
+    awk '
+        /[^[:space:]]/ { p=NR }
+        { lines[NR]=$0 }
+        END { for(i=1;i<=p;i++) print lines[i] }
+    ' "$tmp_file" > "$tmp_clean"
+    mv "$tmp_clean" "$tmp_file"
+
+    # Check if file is now empty or only whitespace
+    if [ ! -s "$tmp_file" ] || ! grep -q '[^[:space:]]' "$tmp_file" 2>/dev/null; then
+        rm -f "$file" "$tmp_file"
+        echo -e "${GREEN}Removed${NC} $file (was only global rules)"
+    else
+        mv "$tmp_file" "$file"
+        echo -e "${GREEN}Cleaned${NC} global rules from $file"
+    fi
+}
+
 PROJECT_MODE=false
 PROJECT_DIR=""
 
@@ -151,6 +188,12 @@ if [ "$PROJECT_MODE" = true ]; then
         fi
     fi
 
+    # Clean global rules from project CLAUDE.md
+    proj_claude_md="$CLAUDE_DIR/CLAUDE.md"
+    if [ -f "$proj_claude_md" ] && grep -qF "$GLOBAL_RULES_MARKER_BEGIN" "$proj_claude_md" 2>/dev/null; then
+        remove_global_rules "$proj_claude_md"
+    fi
+
     # Warn about .mcp.json (don't auto-delete since user may have added their own servers)
     if [ -f "$PROJECT_DIR/.mcp.json" ]; then
         echo -e "${YELLOW}Note:${NC} $PROJECT_DIR/.mcp.json was not removed (may contain custom servers)."
@@ -231,6 +274,12 @@ else
         else
             rm -f "$tmp_file"
         fi
+    fi
+
+    # Clean global rules from user-level CLAUDE.md
+    user_claude_md="$HOME/.claude/CLAUDE.md"
+    if [ -f "$user_claude_md" ] && grep -qF "$GLOBAL_RULES_MARKER_BEGIN" "$user_claude_md" 2>/dev/null; then
+        remove_global_rules "$user_claude_md"
     fi
 fi
 
