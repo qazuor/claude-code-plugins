@@ -18,6 +18,10 @@
     "shadcn",
     "zustand",
     "vercel",
-    "patterns"
+    "patterns",
+    "design-clone",
+    "screenshot-to-code",
+    "ui-clone",
+    "visual-analysis"
   ]
 }
