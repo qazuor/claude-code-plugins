@@ -176,6 +176,7 @@ echo "Test: hooks.json placeholder validation"
 for hooks_file in "$REPO_DIR"/plugins/*/hooks/hooks.json; do
     [ -f "$hooks_file" ] || continue
     plugin_name=$(basename "$(dirname "$(dirname "$hooks_file")")")
+    # shellcheck disable=SC2016
     if grep -q '\${CLAUDE_PLUGIN_ROOT}' "$hooks_file"; then
         pass "$plugin_name/hooks/hooks.json uses \${CLAUDE_PLUGIN_ROOT} placeholder"
     else

@@ -420,7 +420,9 @@ merge_mcp_user() {
     local skipped=$(($(echo "$mcp_servers" | jq 'length') - added))
 
     echo -e "  ${GREEN}+${NC} $added servers added to ~/.claude.json"
-    [ "$skipped" -gt 0 ] && echo -e "  ${YELLOW}~${NC} $skipped servers skipped (already configured)"
+    if [ "$skipped" -gt 0 ]; then
+        echo -e "  ${YELLOW}~${NC} $skipped servers skipped (already configured)"
+    fi
 }
 
 # ---------------------------------------------------------------------------
