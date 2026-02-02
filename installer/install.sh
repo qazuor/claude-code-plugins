@@ -425,6 +425,393 @@ merge_mcp_user() {
     fi
 }
 
+GLOBAL_RULES_MARKER_BEGIN="<!-- qazuor-plugins:global-rules:begin -->"
+GLOBAL_RULES_MARKER_END="<!-- qazuor-plugins:global-rules:end -->"
+
+has_qazuor_global_rules() {
+    local file="$1"
+    [ -f "$file" ] && grep -qF "$GLOBAL_RULES_MARKER_BEGIN" "$file" 2>/dev/null
+}
+
+inject_global_rules() {
+    local target_file="$1"
+    local lang="$2"
+    local rules_template="$REPO_DIR/plugins/core/templates/global-rules-block.md.template"
+
+    if [ ! -f "$rules_template" ]; then
+        echo -e "  ${YELLOW}!${NC} Rules template not found: $rules_template"
+        return 1
+    fi
+
+    # Generate the rules block into a temp file for safe multiline handling
+    local rules_file
+    rules_file=$(mktemp "${target_file}.rules.XXXXXX")
+    _CLEANUP_FILES+=("$rules_file")
+    sed "s/{{PREFERRED_LANGUAGE}}/$lang/g" "$rules_template" > "$rules_file"
+
+    mkdir -p "$(dirname "$target_file")"
+
+    if has_qazuor_global_rules "$target_file"; then
+        # Replace existing block (idempotent update)
+        local tmp_file
+        tmp_file=$(mktemp "${target_file}.XXXXXX")
+        _CLEANUP_FILES+=("$tmp_file")
+        awk -v begin="$GLOBAL_RULES_MARKER_BEGIN" -v end="$GLOBAL_RULES_MARKER_END" -v rfile="$rules_file" '
+            $0 == begin { while ((getline line < rfile) > 0) print line; close(rfile); skip=1; next }
+            $0 == end   { skip=0; next }
+            !skip       { print }
+        ' "$target_file" > "$tmp_file"
+        mv "$tmp_file" "$target_file"
+    else
+        # Append block to end of file
+        if [ -f "$target_file" ] && [ -s "$target_file" ]; then
+            # Ensure a blank line before the block
+            printf '\n' >> "$target_file"
+            cat "$rules_file" >> "$target_file"
+        else
+            cat "$rules_file" > "$target_file"
+        fi
+    fi
+    rm -f "$rules_file"
+}
+
+setup_claude_md() {
+    local claude_md="$HOME/.claude/CLAUDE.md"
+    local template="$REPO_DIR/plugins/core/templates/global.md.template"
+    local rules_template="$REPO_DIR/plugins/core/templates/global-rules-block.md.template"
+
+    # Check if templates exist
+    if [ ! -f "$template" ]; then
+        echo -e "  ${YELLOW}!${NC} Template not found: $template"
+        return 0
+    fi
+    if [ ! -f "$rules_template" ]; then
+        echo -e "  ${YELLOW}!${NC} Rules template not found: $rules_template"
+        return 0
+    fi
+
+    # 3-state detection: missing | has_our_rules | custom
+    local state="missing"
+    if [ -f "$claude_md" ] && [ -s "$claude_md" ]; then
+        if has_qazuor_global_rules "$claude_md"; then
+            state="has_our_rules"
+        elif grep -q "Describe your project here\.\.\." "$claude_md" 2>/dev/null; then
+            state="missing"  # default placeholder counts as missing
+        else
+            state="custom"
+        fi
+    fi
+
+    echo -e "${CYAN}Setting up ~/.claude/CLAUDE.md...${NC}"
+    echo ""
+
+    case "$state" in
+        missing)
+            echo "  Your CLAUDE.md is empty or has the default placeholder."
+            echo "  We can populate it with global development instructions"
+            echo "  (coding standards, TDD, TypeScript, commit conventions, etc.)."
+            echo ""
+            echo -ne "  Generate global CLAUDE.md? [Y/n]: "
+            read -r answer
+            [[ "$answer" =~ ^[Nn] ]] && return 0
+
+            echo ""
+            echo -ne "  Preferred language for Claude responses [English]: "
+            read -r lang
+            lang="${lang:-English}"
+
+            mkdir -p "$(dirname "$claude_md")"
+            sed "s/{{PREFERRED_LANGUAGE}}/$lang/g" "$template" > "$claude_md"
+            echo ""
+            echo -e "  ${GREEN}✓${NC} Generated ~/.claude/CLAUDE.md (language: $lang)"
+            ;;
+
+        has_our_rules)
+            echo "  Your CLAUDE.md already contains our global rules."
+            echo ""
+            echo -ne "  Update rules to latest version? [Y/n]: "
+            read -r answer
+            [[ "$answer" =~ ^[Nn] ]] && return 0
+
+            echo ""
+            echo -ne "  Preferred language for Claude responses [English]: "
+            read -r lang
+            lang="${lang:-English}"
+
+            inject_global_rules "$claude_md" "$lang"
+            echo ""
+            echo -e "  ${GREEN}✓${NC} Updated global rules in ~/.claude/CLAUDE.md (language: $lang)"
+            ;;
+
+        custom)
+            echo "  Your CLAUDE.md has custom content."
+            echo "  We can add our global development rules alongside your content."
+            echo ""
+            echo "  [S]kip  — Don't touch (default)"
+            echo "  [O]verwrite — Replace with our template"
+            echo "  [M]erge — Append global rules to your existing content"
+            echo ""
+            echo -ne "  Choose [S/o/m]: "
+            read -r choice
+            choice="${choice:-S}"
+
+            case "$choice" in
+                [Oo])
+                    echo ""
+                    echo -ne "  Preferred language for Claude responses [English]: "
+                    read -r lang
+                    lang="${lang:-English}"
+
+                    sed "s/{{PREFERRED_LANGUAGE}}/$lang/g" "$template" > "$claude_md"
+                    echo ""
+                    echo -e "  ${GREEN}✓${NC} Replaced ~/.claude/CLAUDE.md (language: $lang)"
+                    ;;
+                [Mm])
+                    echo ""
+                    echo -ne "  Preferred language for Claude responses [English]: "
+                    read -r lang
+                    lang="${lang:-English}"
+
+                    inject_global_rules "$claude_md" "$lang"
+                    echo ""
+                    echo -e "  ${GREEN}✓${NC} Merged global rules into ~/.claude/CLAUDE.md (language: $lang)"
+                    ;;
+                *)
+                    echo -e "  ${YELLOW}~${NC} Skipped CLAUDE.md setup"
+                    return 0
+                    ;;
+            esac
+            ;;
+    esac
+}
+
+setup_project_claude_md() {
+    local project_dir="$1"
+    local claude_md="$project_dir/.claude/CLAUDE.md"
+    local template="$REPO_DIR/plugins/core/templates/project-generic.md.template"
+
+    if [ ! -f "$template" ]; then
+        echo -e "  ${YELLOW}!${NC} Project template not found: $template"
+        return 0
+    fi
+
+    # Skip if project already has a CLAUDE.md with real content
+    if [ -f "$claude_md" ] && [ -s "$claude_md" ]; then
+        if ! grep -q "Describe your project here\.\.\." "$claude_md" 2>/dev/null; then
+            echo -e "${CYAN}Project CLAUDE.md${NC}"
+            echo -e "  ${GREEN}✓${NC} $claude_md already exists with content — skipping"
+            echo ""
+            return 0
+        fi
+    fi
+
+    echo -e "${CYAN}Setting up project CLAUDE.md...${NC}"
+    echo ""
+    echo "  We can generate a project-specific CLAUDE.md with your tech stack,"
+    echo "  architecture, and coding standards."
+    echo ""
+    echo -ne "  Generate project CLAUDE.md? [Y/n]: "
+    read -r answer
+    [[ "$answer" =~ ^[Nn] ]] && return 0
+
+    echo ""
+    echo "  Fill in the following (press Enter to keep defaults):"
+    echo ""
+
+    # Project basics
+    echo -ne "  Project name [$(basename "$project_dir")]: "
+    read -r proj_name
+    proj_name="${proj_name:-$(basename "$project_dir")}"
+
+    echo -ne "  Project description [A software project]: "
+    read -r proj_desc
+    proj_desc="${proj_desc:-A software project}"
+
+    # Tech stack
+    echo -ne "  Language [TypeScript 5.x]: "
+    read -r lang
+    lang="${lang:-TypeScript 5.x}"
+
+    echo -ne "  Runtime [Node.js 20]: "
+    read -r runtime
+    runtime="${runtime:-Node.js 20}"
+
+    echo -ne "  Framework [Next.js]: "
+    read -r framework
+    framework="${framework:-Next.js}"
+
+    echo -ne "  Database [PostgreSQL]: "
+    read -r database
+    database="${database:-PostgreSQL}"
+
+    echo -ne "  ORM [Drizzle]: "
+    read -r orm
+    orm="${orm:-Drizzle}"
+
+    echo -ne "  Test framework [Vitest]: "
+    read -r test_fw
+    test_fw="${test_fw:-Vitest}"
+
+    echo -ne "  Package manager [pnpm]: "
+    read -r pkg_mgr
+    pkg_mgr="${pkg_mgr:-pnpm}"
+
+    echo -ne "  Formatter/linter [Biome]: "
+    read -r formatter
+    formatter="${formatter:-Biome}"
+
+    # Project structure
+    echo -ne "  Project structure [src/ with feature-based modules]: "
+    read -r proj_struct
+    proj_struct="${proj_struct:-src/ with feature-based modules}"
+
+    # Architecture
+    echo -ne "  Architecture pattern [Layered]: "
+    read -r arch_pattern
+    arch_pattern="${arch_pattern:-Layered}"
+
+    echo -ne "  Layers [Routes -> Controllers -> Services -> Repositories]: "
+    read -r layers
+    layers="${layers:-Routes -> Controllers -> Services -> Repositories}"
+
+    # Testing
+    echo -ne "  Test location [test/ directory mirroring src/]: "
+    read -r test_loc
+    test_loc="${test_loc:-test/ directory mirroring src/}"
+
+    # Database details
+    echo -ne "  Migration tool [drizzle-kit]: "
+    read -r migration_tool
+    migration_tool="${migration_tool:-drizzle-kit}"
+
+    echo -ne "  Soft deletes [yes]: "
+    read -r soft_deletes
+    soft_deletes="${soft_deletes:-yes}"
+
+    # Git
+    echo -ne "  Commit scopes [db, api, ui, auth, config]: "
+    read -r commit_scopes
+    commit_scopes="${commit_scopes:-db, api, ui, auth, config}"
+
+    echo -ne "  Branch format [feature/, fix/, chore/]: "
+    read -r branch_fmt
+    branch_fmt="${branch_fmt:-feature/, fix/, chore/}"
+
+    # Environment
+    echo -ne "  Required env vars [DATABASE_URL, API_KEY]: "
+    read -r env_vars
+    env_vars="${env_vars:-DATABASE_URL, API_KEY}"
+
+    echo -ne "  Config method [environment variables]: "
+    read -r config_method
+    config_method="${config_method:-environment variables}"
+
+    # Deployment
+    echo -ne "  Deployment platform [Vercel]: "
+    read -r deploy_platform
+    deploy_platform="${deploy_platform:-Vercel}"
+
+    echo -ne "  CI/CD [GitHub Actions]: "
+    read -r cicd
+    cicd="${cicd:-GitHub Actions}"
+
+    echo -ne "  Environments [development, staging, production]: "
+    read -r envs
+    envs="${envs:-development, staging, production}"
+
+    # Custom rules
+    echo -ne "  Custom rule 1 (or Enter to skip) []: "
+    read -r rule1
+    rule1="${rule1:-Follow project-specific guidelines}"
+
+    echo -ne "  Custom rule 2 (or Enter to skip) []: "
+    read -r rule2
+    rule2="${rule2:-Review code before merging}"
+
+    echo -ne "  Custom rule 3 (or Enter to skip) []: "
+    read -r rule3
+    rule3="${rule3:-Document all API changes}"
+
+    # Preferred language for global rules (if needed)
+    echo -ne "  Preferred language for Claude responses [English]: "
+    read -r preferred_lang
+    preferred_lang="${preferred_lang:-English}"
+
+    echo ""
+
+    # Determine if we need to include global rules in the project file
+    local user_claude_md="$HOME/.claude/CLAUDE.md"
+    local include_global_rules=true
+    local include_coding_standards=true
+
+    if has_qazuor_global_rules "$user_claude_md"; then
+        include_global_rules=false
+        include_coding_standards=false
+        echo -e "  ${BLUE}ℹ${NC} User-level CLAUDE.md has global rules — skipping duplication"
+    fi
+
+    # Generate from template using sed substitutions
+    mkdir -p "$(dirname "$claude_md")"
+    local tmp_file
+    tmp_file=$(mktemp "${claude_md}.XXXXXX")
+    _CLEANUP_FILES+=("$tmp_file")
+
+    # Escape special characters for sed
+    # Use | as delimiter to avoid conflicts with common chars
+    sed \
+        -e "s|{{PROJECT_NAME}}|$proj_name|g" \
+        -e "s|{{PROJECT_DESCRIPTION}}|$proj_desc|g" \
+        -e "s|{{LANGUAGE}}|$lang|g" \
+        -e "s|{{RUNTIME}}|$runtime|g" \
+        -e "s|{{FRAMEWORK}}|$framework|g" \
+        -e "s|{{DATABASE}}|$database|g" \
+        -e "s|{{ORM}}|$orm|g" \
+        -e "s|{{TEST_FRAMEWORK}}|$test_fw|g" \
+        -e "s|{{PACKAGE_MANAGER}}|$pkg_mgr|g" \
+        -e "s|{{FORMATTER}}|$formatter|g" \
+        -e "s|{{PROJECT_STRUCTURE}}|$proj_struct|g" \
+        -e "s|{{ARCHITECTURE_PATTERN}}|$arch_pattern|g" \
+        -e "s|{{LAYERS}}|$layers|g" \
+        -e "s|{{TEST_LOCATION}}|$test_loc|g" \
+        -e "s|{{MIGRATION_TOOL}}|$migration_tool|g" \
+        -e "s|{{SOFT_DELETES}}|$soft_deletes|g" \
+        -e "s|{{COMMIT_SCOPES}}|$commit_scopes|g" \
+        -e "s|{{BRANCH_FORMAT}}|$branch_fmt|g" \
+        -e "s|{{REQUIRED_ENV_VARS}}|$env_vars|g" \
+        -e "s|{{CONFIG_METHOD}}|$config_method|g" \
+        -e "s|{{DEPLOYMENT_PLATFORM}}|$deploy_platform|g" \
+        -e "s|{{CI_CD}}|$cicd|g" \
+        -e "s|{{ENVIRONMENTS}}|$envs|g" \
+        -e "s|{{CUSTOM_RULE_1}}|$rule1|g" \
+        -e "s|{{CUSTOM_RULE_2}}|$rule2|g" \
+        -e "s|{{CUSTOM_RULE_3}}|$rule3|g" \
+        "$template" > "$tmp_file"
+
+    # If user-level already has global rules, strip the Coding Standards section
+    if [ "$include_coding_standards" = false ]; then
+        local tmp2
+        tmp2=$(mktemp "${claude_md}.XXXXXX")
+        _CLEANUP_FILES+=("$tmp2")
+        awk '
+            /^## Coding Standards/ { skip=1; next }
+            skip && /^## /        { skip=0 }
+            !skip                 { print }
+        ' "$tmp_file" > "$tmp2"
+        mv "$tmp2" "$tmp_file"
+    fi
+
+    mv "$tmp_file" "$claude_md"
+
+    # Append global rules block if user-level doesn't have them
+    if [ "$include_global_rules" = true ]; then
+        inject_global_rules "$claude_md" "$preferred_lang"
+        echo -e "  ${GREEN}✓${NC} Generated $claude_md (with global rules)"
+    else
+        echo -e "  ${GREEN}✓${NC} Generated $claude_md (global rules in user-level)"
+    fi
+    echo ""
+}
+
 # ---------------------------------------------------------------------------
 # External plugin helpers
 # ---------------------------------------------------------------------------
@@ -695,6 +1082,34 @@ if [ "$DRY_RUN" = true ]; then
         echo -e "  ${CYAN}Would also offer to install:${NC}"
         jq -r '.plugins[] | "    \(.name) — \(.description)"' "$SCRIPT_DIR/external-plugins.json"
     fi
+    # Show CLAUDE.md status
+    echo ""
+    if [ "$PROJECT_MODE" = true ]; then
+        proj_claude_md="$PROJECT_DIR/.claude/CLAUDE.md"
+        if [ -f "$proj_claude_md" ] && [ -s "$proj_claude_md" ] && \
+           ! grep -q "Describe your project here\.\.\." "$proj_claude_md" 2>/dev/null; then
+            echo -e "  ${CYAN}CLAUDE.md:${NC} $proj_claude_md already exists — would skip"
+        else
+            echo -e "  ${CYAN}Would also offer to generate:${NC}"
+            echo "    $proj_claude_md (from project-generic.md.template)"
+            if has_qazuor_global_rules "$HOME/.claude/CLAUDE.md"; then
+                echo "    (global rules omitted — already in user-level)"
+            else
+                echo "    (global rules included — not found in user-level)"
+            fi
+        fi
+    else
+        claude_md="$HOME/.claude/CLAUDE.md"
+        if [ ! -f "$claude_md" ] || [ ! -s "$claude_md" ] || \
+           grep -q "Describe your project here\.\.\." "$claude_md" 2>/dev/null; then
+            echo -e "  ${CYAN}Would also offer to generate:${NC}"
+            echo "    ~/.claude/CLAUDE.md (from global.md.template)"
+        elif has_qazuor_global_rules "$claude_md"; then
+            echo -e "  ${CYAN}CLAUDE.md:${NC} Would offer to update global rules to latest version"
+        else
+            echo -e "  ${CYAN}CLAUDE.md:${NC} Has custom content — would offer Skip/Overwrite/Merge"
+        fi
+    fi
     echo ""
     echo -e "${YELLOW}No changes were made (dry run).${NC}"
     exit 0
@@ -756,6 +1171,9 @@ if [ "$PROJECT_MODE" = true ]; then
         fi
     done
 
+    # Setup project CLAUDE.md
+    setup_project_claude_md "$PROJECT_DIR"
+
 else
     # --- User-level installation ---
     for plugin_name in "${PLUGINS_TO_INSTALL[@]}"; do
@@ -803,6 +1221,10 @@ else
             break  # Only one plugin has .mcp.json
         fi
     done
+
+    # Setup CLAUDE.md if empty/placeholder
+    setup_claude_md
+    echo ""
 fi
 
 # MCP API key setup
