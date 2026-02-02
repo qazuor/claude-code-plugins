@@ -292,13 +292,17 @@ merge_hooks() {
     }
 
     # Merge into settings file (append to existing event arrays)
-    # First strip existing plugin hooks (makes re-install idempotent)
-    local current
+    # Strip only THIS plugin's event keys (not all qazuor-plugins hooks)
+    # to make re-install idempotent without clobbering other plugins' hooks
+    local current event_keys
     current=$(cat "$settings_file")
-    current=$(echo "$current" | jq '
+    event_keys=$(echo "$new_hooks" | jq '[keys[]]')
+    current=$(echo "$current" | jq --argjson keys "$event_keys" '
         if .hooks then
             .hooks |= with_entries(
-                .value |= map(select(._source != "qazuor-plugins"))
+                if (.key | IN($keys[])) then
+                    .value |= map(select(._source != "qazuor-plugins"))
+                else . end
             )
         else . end
     ')
