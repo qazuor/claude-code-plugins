@@ -186,6 +186,50 @@ done
 echo ""
 
 # ---------------------------------------------------------------------------
+# Test 9: global.md.template exists and has placeholder
+# ---------------------------------------------------------------------------
+echo "Test: global.md.template validation"
+template_file="$REPO_DIR/plugins/core/templates/global.md.template"
+if [ -f "$template_file" ]; then
+    pass "global.md.template exists"
+else
+    fail "global.md.template not found at $template_file"
+fi
+if [ -f "$template_file" ] && grep -q '{{PREFERRED_LANGUAGE}}' "$template_file"; then
+    pass "global.md.template contains {{PREFERRED_LANGUAGE}} placeholder"
+else
+    fail "global.md.template missing {{PREFERRED_LANGUAGE}} placeholder"
+fi
+echo ""
+
+# ---------------------------------------------------------------------------
+# Test 10: global-rules-block.md.template validation
+# ---------------------------------------------------------------------------
+echo "Test: global-rules-block.md.template validation"
+rules_template="$REPO_DIR/plugins/core/templates/global-rules-block.md.template"
+if [ -f "$rules_template" ]; then
+    pass "global-rules-block.md.template exists"
+else
+    fail "global-rules-block.md.template not found at $rules_template"
+fi
+if [ -f "$rules_template" ] && grep -q '{{PREFERRED_LANGUAGE}}' "$rules_template"; then
+    pass "global-rules-block.md.template contains {{PREFERRED_LANGUAGE}} placeholder"
+else
+    fail "global-rules-block.md.template missing {{PREFERRED_LANGUAGE}} placeholder"
+fi
+if [ -f "$rules_template" ] && grep -qF '<!-- qazuor-plugins:global-rules:begin -->' "$rules_template"; then
+    pass "global-rules-block.md.template contains begin sentinel marker"
+else
+    fail "global-rules-block.md.template missing begin sentinel marker"
+fi
+if [ -f "$rules_template" ] && grep -qF '<!-- qazuor-plugins:global-rules:end -->' "$rules_template"; then
+    pass "global-rules-block.md.template contains end sentinel marker"
+else
+    fail "global-rules-block.md.template missing end sentinel marker"
+fi
+echo ""
+
+# ---------------------------------------------------------------------------
 # Summary
 # ---------------------------------------------------------------------------
 echo "================================"
