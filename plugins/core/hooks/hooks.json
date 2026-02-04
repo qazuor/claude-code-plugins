@@ -1,0 +1,16 @@
+{
+  "description": "Core plugin hooks for diary automation and session management",
+  "hooks": {
+    "PreCompact": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "${CLAUDE_PLUGIN_ROOT}/scripts/pre-compact-diary.sh",
+            "timeout": 10
+          }
+        ]
+      }
+    ]
+  }
+}

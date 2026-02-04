@@ -196,9 +196,95 @@ update_settings() {
 # Project-level installation functions
 # ---------------------------------------------------------------------------
 
+# Build a list of all components available at user level from enabled plugins
+# Populates global arrays: USER_AGENTS, USER_COMMANDS, USER_SKILLS, USER_DOCS, USER_TEMPLATES
+build_user_level_component_index() {
+    USER_AGENTS=()
+    USER_COMMANDS=()
+    USER_SKILLS=()
+    USER_DOCS=()
+    USER_TEMPLATES=()
+
+    local settings_file="$HOME/.claude/settings.json"
+    [ -f "$settings_file" ] || return 0
+
+    # Get enabled plugins
+    local enabled_plugins
+    enabled_plugins=$(jq -r '.enabledPlugins // {} | to_entries[] | select(.value == true) | .key' "$settings_file" 2>/dev/null)
+    [ -z "$enabled_plugins" ] && return 0
+
+    # For each enabled plugin, find its components
+    while IFS= read -r plugin_key; do
+        [ -z "$plugin_key" ] && continue
+
+        # Extract plugin name and author (format: name@author)
+        local plugin_name author
+        plugin_name="${plugin_key%@*}"
+        author="${plugin_key#*@}"
+
+        # Find plugin directory in cache
+        local cache_base="$HOME/.claude/plugins/cache/$author/$plugin_name"
+        [ -d "$cache_base" ] || continue
+
+        # Get the latest version directory (or any version)
+        local plugin_dir=""
+        for version_dir in "$cache_base"/*/; do
+            [ -d "$version_dir" ] && plugin_dir="$version_dir" && break
+        done
+        [ -z "$plugin_dir" ] && continue
+
+        # Index agents
+        if [ -d "$plugin_dir/agents" ]; then
+            for f in "$plugin_dir/agents/"*.md; do
+                [ -f "$f" ] && USER_AGENTS+=("$(basename "$f")")
+            done
+        fi
+
+        # Index commands
+        if [ -d "$plugin_dir/commands" ]; then
+            for f in "$plugin_dir/commands/"*.md; do
+                [ -f "$f" ] && USER_COMMANDS+=("$(basename "$f")")
+            done
+        fi
+
+        # Index skills
+        if [ -d "$plugin_dir/skills" ]; then
+            for d in "$plugin_dir/skills/"*/; do
+                [ -d "$d" ] && USER_SKILLS+=("$(basename "$d")")
+            done
+        fi
+
+        # Index docs
+        if [ -d "$plugin_dir/docs" ]; then
+            for f in "$plugin_dir/docs/"*.md; do
+                [ -f "$f" ] && USER_DOCS+=("$(basename "$f")")
+            done
+        fi
+
+        # Index templates
+        if [ -d "$plugin_dir/templates" ]; then
+            for f in "$plugin_dir/templates/"*; do
+                [ -e "$f" ] && USER_TEMPLATES+=("$(basename "$f")")
+            done
+        fi
+    done <<< "$enabled_plugins"
+}
+
+# Check if a component exists in an array
+component_exists_at_user_level() {
+    local component="$1"
+    shift
+    local arr=("$@")
+    for item in "${arr[@]}"; do
+        [ "$item" = "$component" ] && return 0
+    done
+    return 1
+}
+
 install_plugin_project() {
     local plugin_dir="$1"
     local claude_dir="$2"
+    local skip_user_components="${3:-false}"
     local plugin_name
 
     if [ ! -f "$plugin_dir/.claude-plugin/plugin.json" ]; then
@@ -216,13 +302,20 @@ install_plugin_project() {
     fi
 
     local components=0
+    local skipped=0
 
     # Agents: symlink individual .md files
     if [ -d "$plugin_dir/agents" ]; then
         mkdir -p "$claude_dir/agents"
         for f in "$plugin_dir/agents/"*.md; do
             [ -f "$f" ] || continue
-            ln -sfn "$f" "$claude_dir/agents/$(basename "$f")"
+            local fname
+            fname=$(basename "$f")
+            if [ "$skip_user_components" = true ] && component_exists_at_user_level "$fname" "${USER_AGENTS[@]}"; then
+                skipped=$((skipped + 1))
+                continue
+            fi
+            ln -sfn "$f" "$claude_dir/agents/$fname"
             components=$((components + 1))
         done
     fi
@@ -232,7 +325,13 @@ install_plugin_project() {
         mkdir -p "$claude_dir/commands"
         for f in "$plugin_dir/commands/"*.md; do
             [ -f "$f" ] || continue
-            ln -sfn "$f" "$claude_dir/commands/$(basename "$f")"
+            local fname
+            fname=$(basename "$f")
+            if [ "$skip_user_components" = true ] && component_exists_at_user_level "$fname" "${USER_COMMANDS[@]}"; then
+                skipped=$((skipped + 1))
+                continue
+            fi
+            ln -sfn "$f" "$claude_dir/commands/$fname"
             components=$((components + 1))
         done
     fi
@@ -242,7 +341,13 @@ install_plugin_project() {
         mkdir -p "$claude_dir/skills"
         for d in "$plugin_dir/skills/"*/; do
             [ -d "$d" ] || continue
-            ln -sfn "$(cd "$d" && pwd)" "$claude_dir/skills/$(basename "$d")"
+            local dname
+            dname=$(basename "$d")
+            if [ "$skip_user_components" = true ] && component_exists_at_user_level "$dname" "${USER_SKILLS[@]}"; then
+                skipped=$((skipped + 1))
+                continue
+            fi
+            ln -sfn "$(cd "$d" && pwd)" "$claude_dir/skills/$dname"
             components=$((components + 1))
         done
     fi
@@ -252,7 +357,13 @@ install_plugin_project() {
         mkdir -p "$claude_dir/docs"
         for f in "$plugin_dir/docs/"*.md; do
             [ -f "$f" ] || continue
-            ln -sfn "$f" "$claude_dir/docs/$(basename "$f")"
+            local fname
+            fname=$(basename "$f")
+            if [ "$skip_user_components" = true ] && component_exists_at_user_level "$fname" "${USER_DOCS[@]}"; then
+                skipped=$((skipped + 1))
+                continue
+            fi
+            ln -sfn "$f" "$claude_dir/docs/$fname"
             components=$((components + 1))
         done
     fi
@@ -262,12 +373,25 @@ install_plugin_project() {
         mkdir -p "$claude_dir/templates"
         for f in "$plugin_dir/templates/"*; do
             [ -e "$f" ] || continue
-            ln -sfn "$f" "$claude_dir/templates/$(basename "$f")"
+            local fname
+            fname=$(basename "$f")
+            if [ "$skip_user_components" = true ] && component_exists_at_user_level "$fname" "${USER_TEMPLATES[@]}"; then
+                skipped=$((skipped + 1))
+                continue
+            fi
+            ln -sfn "$f" "$claude_dir/templates/$fname"
             components=$((components + 1))
         done
     fi
 
-    echo -e "  ${GREEN}✓${NC} $plugin_name — $components components linked"
+    # Report results
+    if [ "$components" -eq 0 ] && [ "$skipped" -gt 0 ]; then
+        echo -e "  ${GREEN}~${NC} $plugin_name — all $skipped components already at user level"
+    elif [ "$skipped" -gt 0 ]; then
+        echo -e "  ${GREEN}✓${NC} $plugin_name — $components linked, $skipped skipped (user level)"
+    else
+        echo -e "  ${GREEN}✓${NC} $plugin_name — $components components linked"
+    fi
 }
 
 merge_hooks() {
@@ -332,6 +456,7 @@ merge_hooks() {
 merge_mcp() {
     local plugin_dir="$1"
     local target_dir="$2"
+    local skip_keys="${3:-[]}"   # JSON array of server names to skip (dedup)
 
     local mcp_source="$plugin_dir/.mcp.json"
     [ -f "$mcp_source" ] || return 0
@@ -344,6 +469,25 @@ merge_mcp() {
         echo -e "  ${YELLOW}!${NC} Failed to parse .mcp.json from $(basename "$plugin_dir")"
         return 0
     }
+
+    # Filter out servers already configured at user level
+    local total_before
+    total_before=$(echo "$mcp_servers" | jq 'length')
+    if [ "$skip_keys" != "[]" ]; then
+        mcp_servers=$(echo "$mcp_servers" | jq --argjson skip "$skip_keys" '
+            with_entries(select(.key as $k | $skip | index($k) | not))
+        ')
+    fi
+
+    # If nothing left to merge, report and return
+    local remaining
+    remaining=$(echo "$mcp_servers" | jq 'length')
+    if [ "$remaining" -eq 0 ]; then
+        echo -e "  ${GREEN}~${NC} mcp-servers -- all $total_before servers already configured at user level"
+        return 0
+    fi
+
+    local skipped=$((total_before - remaining))
 
     if [ -f "$mcp_target" ]; then
         # Merge into existing .mcp.json
@@ -364,9 +508,10 @@ merge_mcp() {
         echo "$mcp_servers" | jq '{mcpServers: .}' > "$mcp_target"
     fi
 
-    local server_count
-    server_count=$(echo "$mcp_servers" | jq 'length')
-    echo -e "  ${GREEN}✓${NC} mcp-servers — $server_count servers merged into .mcp.json"
+    echo -e "  ${GREEN}✓${NC} mcp-servers — $remaining servers merged into .mcp.json"
+    if [ "$skipped" -gt 0 ]; then
+        echo -e "  ${YELLOW}~${NC} $skipped servers skipped (already configured at user level)"
+    fi
 }
 
 merge_mcp_user() {
@@ -589,40 +734,86 @@ setup_claude_md() {
     esac
 }
 
+is_new_project() {
+    local project_dir="$1"
+    # A project is "new" if it has no meaningful code files
+    # Check for common indicators of existing development
+    local indicators=0
+
+    # Check for package.json with dependencies
+    if [ -f "$project_dir/package.json" ] && \
+       jq -e '.dependencies or .devDependencies' "$project_dir/package.json" &>/dev/null; then
+        indicators=$((indicators + 1))
+    fi
+
+    # Check for src/ or app/ directories with files
+    if [ -d "$project_dir/src" ] && [ "$(find "$project_dir/src" -type f 2>/dev/null | head -1)" ]; then
+        indicators=$((indicators + 1))
+    fi
+    if [ -d "$project_dir/app" ] && [ "$(find "$project_dir/app" -type f 2>/dev/null | head -1)" ]; then
+        indicators=$((indicators + 1))
+    fi
+
+    # Check for common config files that indicate active development
+    for cfg in tsconfig.json vite.config.ts next.config.js astro.config.mjs; do
+        [ -f "$project_dir/$cfg" ] && indicators=$((indicators + 1))
+    done
+
+    # New if fewer than 2 indicators
+    [ "$indicators" -lt 2 ]
+}
+
 setup_project_claude_md() {
     local project_dir="$1"
-    local claude_md="$project_dir/.claude/CLAUDE.md"
-    local template="$REPO_DIR/plugins/core/templates/project-generic.md.template"
+    # CLAUDE.md goes in project root (standard location)
+    local claude_md="$project_dir/CLAUDE.md"
+    # Also check .claude/ location for backwards compatibility
+    local claude_md_alt="$project_dir/.claude/CLAUDE.md"
 
-    if [ ! -f "$template" ]; then
-        echo -e "  ${YELLOW}!${NC} Project template not found: $template"
-        return 0
-    fi
-
-    # Skip if project already has a CLAUDE.md with real content
-    if [ -f "$claude_md" ] && [ -s "$claude_md" ]; then
-        if ! grep -q "Describe your project here\.\.\." "$claude_md" 2>/dev/null; then
-            echo -e "${CYAN}Project CLAUDE.md${NC}"
-            echo -e "  ${GREEN}✓${NC} $claude_md already exists with content — skipping"
-            echo ""
-            return 0
+    # Skip if project already has a CLAUDE.md with real content (check both locations)
+    for check_path in "$claude_md" "$claude_md_alt"; do
+        if [ -f "$check_path" ] && [ -s "$check_path" ]; then
+            if ! grep -q "Describe your project here\.\.\." "$check_path" 2>/dev/null; then
+                echo -e "${CYAN}Project CLAUDE.md${NC}"
+                echo -e "  ${GREEN}✓${NC} $check_path already exists with content — skipping"
+                echo ""
+                return 0
+            fi
         fi
-    fi
+    done
 
     echo -e "${CYAN}Setting up project CLAUDE.md...${NC}"
-    echo ""
-    echo "  We can generate a project-specific CLAUDE.md with your tech stack,"
-    echo "  architecture, and coding standards."
     echo ""
     echo -ne "  Generate project CLAUDE.md? [Y/n]: "
     read -r answer
     [[ "$answer" =~ ^[Nn] ]] && return 0
 
+    # Determine if new or existing project
+    if is_new_project "$project_dir"; then
+        setup_project_claude_md_new "$project_dir" "$claude_md"
+    else
+        setup_project_claude_md_existing "$project_dir" "$claude_md"
+    fi
+}
+
+setup_project_claude_md_new() {
+    local project_dir="$1"
+    local claude_md="$2"
+    local template="$REPO_DIR/plugins/core/templates/project-minimal.md.template"
+
+    if [ ! -f "$template" ]; then
+        echo -e "  ${YELLOW}!${NC} Template not found: $template"
+        return 0
+    fi
+
+    echo ""
+    echo "  This looks like a new project. We'll create a minimal CLAUDE.md"
+    echo "  with placeholders for you to fill in later."
     echo ""
     echo "  Fill in the following (press Enter to keep defaults):"
     echo ""
 
-    # Project basics
+    # Essential questions only
     echo -ne "  Project name [$(basename "$project_dir")]: "
     read -r proj_name
     proj_name="${proj_name:-$(basename "$project_dir")}"
@@ -630,27 +821,6 @@ setup_project_claude_md() {
     echo -ne "  Project description [A software project]: "
     read -r proj_desc
     proj_desc="${proj_desc:-A software project}"
-
-    # Tech stack
-    echo -ne "  Language [TypeScript 5.x]: "
-    read -r lang
-    lang="${lang:-TypeScript 5.x}"
-
-    echo -ne "  Runtime [Node.js 20]: "
-    read -r runtime
-    runtime="${runtime:-Node.js 20}"
-
-    echo -ne "  Framework [Next.js]: "
-    read -r framework
-    framework="${framework:-Next.js}"
-
-    echo -ne "  Database [PostgreSQL]: "
-    read -r database
-    database="${database:-PostgreSQL}"
-
-    echo -ne "  ORM [Drizzle]: "
-    read -r orm
-    orm="${orm:-Drizzle}"
 
     echo -ne "  Test framework [Vitest]: "
     read -r test_fw
@@ -664,53 +834,14 @@ setup_project_claude_md() {
     read -r formatter
     formatter="${formatter:-Biome}"
 
-    # Project structure
-    echo -ne "  Project structure [src/ with feature-based modules]: "
-    read -r proj_struct
-    proj_struct="${proj_struct:-src/ with feature-based modules}"
-
-    # Architecture
-    echo -ne "  Architecture pattern [Layered]: "
-    read -r arch_pattern
-    arch_pattern="${arch_pattern:-Layered}"
-
-    echo -ne "  Layers [Routes -> Controllers -> Services -> Repositories]: "
-    read -r layers
-    layers="${layers:-Routes -> Controllers -> Services -> Repositories}"
-
-    # Testing
     echo -ne "  Test location [test/ directory mirroring src/]: "
     read -r test_loc
     test_loc="${test_loc:-test/ directory mirroring src/}"
-
-    # Database details
-    echo -ne "  Migration tool [drizzle-kit]: "
-    read -r migration_tool
-    migration_tool="${migration_tool:-drizzle-kit}"
-
-    echo -ne "  Soft deletes [yes]: "
-    read -r soft_deletes
-    soft_deletes="${soft_deletes:-yes}"
-
-    # Git
-    echo -ne "  Commit scopes [db, api, ui, auth, config]: "
-    read -r commit_scopes
-    commit_scopes="${commit_scopes:-db, api, ui, auth, config}"
-
-    echo -ne "  Branch format [feature/, fix/, chore/]: "
-    read -r branch_fmt
-    branch_fmt="${branch_fmt:-feature/, fix/, chore/}"
-
-    # Environment
-    echo -ne "  Required env vars [DATABASE_URL, API_KEY]: "
-    read -r env_vars
-    env_vars="${env_vars:-DATABASE_URL, API_KEY}"
 
     echo -ne "  Config method [environment variables]: "
     read -r config_method
     config_method="${config_method:-environment variables}"
 
-    # Deployment
     echo -ne "  Deployment platform [Vercel]: "
     read -r deploy_platform
     deploy_platform="${deploy_platform:-Vercel}"
@@ -719,100 +850,302 @@ setup_project_claude_md() {
     read -r cicd
     cicd="${cicd:-GitHub Actions}"
 
-    echo -ne "  Environments [development, staging, production]: "
-    read -r envs
-    envs="${envs:-development, staging, production}"
-
-    # Custom rules
-    echo -ne "  Custom rule 1 (or Enter to skip) []: "
-    read -r rule1
-    rule1="${rule1:-Follow project-specific guidelines}"
-
-    echo -ne "  Custom rule 2 (or Enter to skip) []: "
-    read -r rule2
-    rule2="${rule2:-Review code before merging}"
-
-    echo -ne "  Custom rule 3 (or Enter to skip) []: "
-    read -r rule3
-    rule3="${rule3:-Document all API changes}"
-
-    # Preferred language for global rules (if needed)
-    echo -ne "  Preferred language for Claude responses [English]: "
+    echo -ne "  Preferred language for Claude responses [Spanish]: "
     read -r preferred_lang
-    preferred_lang="${preferred_lang:-English}"
+    preferred_lang="${preferred_lang:-Spanish}"
+
+    echo -ne "  Preferred language for code/comments/docs [English]: "
+    read -r code_lang
+    code_lang="${code_lang:-English}"
 
     echo ""
 
-    # Determine if we need to include global rules in the project file
-    local user_claude_md="$HOME/.claude/CLAUDE.md"
-    local include_global_rules=true
-    local include_coding_standards=true
-
-    if has_qazuor_global_rules "$user_claude_md"; then
-        include_global_rules=false
-        include_coding_standards=false
-        echo -e "  ${BLUE}ℹ${NC} User-level CLAUDE.md has global rules — skipping duplication"
-    fi
-
-    # Generate from template using sed substitutions
-    mkdir -p "$(dirname "$claude_md")"
-    local tmp_file
-    tmp_file=$(mktemp "${claude_md}.XXXXXX")
-    _CLEANUP_FILES+=("$tmp_file")
-
-    # Escape special characters for sed
-    # Use | as delimiter to avoid conflicts with common chars
+    # Generate from template (CLAUDE.md goes in project root)
     sed \
         -e "s|{{PROJECT_NAME}}|$proj_name|g" \
         -e "s|{{PROJECT_DESCRIPTION}}|$proj_desc|g" \
-        -e "s|{{LANGUAGE}}|$lang|g" \
-        -e "s|{{RUNTIME}}|$runtime|g" \
-        -e "s|{{FRAMEWORK}}|$framework|g" \
-        -e "s|{{DATABASE}}|$database|g" \
-        -e "s|{{ORM}}|$orm|g" \
         -e "s|{{TEST_FRAMEWORK}}|$test_fw|g" \
         -e "s|{{PACKAGE_MANAGER}}|$pkg_mgr|g" \
         -e "s|{{FORMATTER}}|$formatter|g" \
-        -e "s|{{PROJECT_STRUCTURE}}|$proj_struct|g" \
-        -e "s|{{ARCHITECTURE_PATTERN}}|$arch_pattern|g" \
-        -e "s|{{LAYERS}}|$layers|g" \
         -e "s|{{TEST_LOCATION}}|$test_loc|g" \
-        -e "s|{{MIGRATION_TOOL}}|$migration_tool|g" \
-        -e "s|{{SOFT_DELETES}}|$soft_deletes|g" \
-        -e "s|{{COMMIT_SCOPES}}|$commit_scopes|g" \
-        -e "s|{{BRANCH_FORMAT}}|$branch_fmt|g" \
-        -e "s|{{REQUIRED_ENV_VARS}}|$env_vars|g" \
         -e "s|{{CONFIG_METHOD}}|$config_method|g" \
         -e "s|{{DEPLOYMENT_PLATFORM}}|$deploy_platform|g" \
         -e "s|{{CI_CD}}|$cicd|g" \
-        -e "s|{{ENVIRONMENTS}}|$envs|g" \
-        -e "s|{{CUSTOM_RULE_1}}|$rule1|g" \
-        -e "s|{{CUSTOM_RULE_2}}|$rule2|g" \
-        -e "s|{{CUSTOM_RULE_3}}|$rule3|g" \
-        "$template" > "$tmp_file"
+        -e "s|{{PREFERRED_LANG}}|$preferred_lang|g" \
+        -e "s|{{CODE_LANG}}|$code_lang|g" \
+        "$template" > "$claude_md"
 
-    # If user-level already has global rules, strip the Coding Standards section
-    if [ "$include_coding_standards" = false ]; then
-        local tmp2
-        tmp2=$(mktemp "${claude_md}.XXXXXX")
-        _CLEANUP_FILES+=("$tmp2")
-        awk '
-            /^## Coding Standards/ { skip=1; next }
-            skip && /^## /        { skip=0 }
-            !skip                 { print }
-        ' "$tmp_file" > "$tmp2"
-        mv "$tmp2" "$tmp_file"
-    fi
-
-    mv "$tmp_file" "$claude_md"
-
-    # Append global rules block if user-level doesn't have them
-    if [ "$include_global_rules" = true ]; then
+    # Append global rules if user-level doesn't have them
+    local user_claude_md="$HOME/.claude/CLAUDE.md"
+    if ! has_qazuor_global_rules "$user_claude_md"; then
         inject_global_rules "$claude_md" "$preferred_lang"
-        echo -e "  ${GREEN}✓${NC} Generated $claude_md (with global rules)"
-    else
-        echo -e "  ${GREEN}✓${NC} Generated $claude_md (global rules in user-level)"
     fi
+
+    echo -e "  ${GREEN}✓${NC} Generated $claude_md"
+    echo ""
+    echo -e "  ${YELLOW}Important:${NC} The generated CLAUDE.md has TODO placeholders."
+    echo -e "  Please edit $claude_md to complete the project configuration."
+    echo ""
+}
+
+detect_project_info() {
+    local project_dir="$1"
+
+    # Initialize with defaults
+    DETECTED_NAME="$(basename "$project_dir")"
+    DETECTED_DESC="A software project"
+    DETECTED_TEST_FW="Vitest"
+    DETECTED_PKG_MGR="pnpm"
+    DETECTED_FORMATTER="Biome"
+    DETECTED_TEST_LOC="test/ directory mirroring src/"
+    DETECTED_CONFIG="environment variables"
+    DETECTED_DEPLOY="Vercel"
+    DETECTED_CICD="GitHub Actions"
+
+    # Try to read package.json
+    local pkg_json="$project_dir/package.json"
+    if [ -f "$pkg_json" ]; then
+        # Project name from package.json
+        local pkg_name
+        pkg_name=$(jq -r '.name // empty' "$pkg_json" 2>/dev/null)
+        [ -n "$pkg_name" ] && DETECTED_NAME="$pkg_name"
+
+        # Description from package.json
+        local pkg_desc
+        pkg_desc=$(jq -r '.description // empty' "$pkg_json" 2>/dev/null)
+        [ -n "$pkg_desc" ] && DETECTED_DESC="$pkg_desc"
+
+        # Detect package manager from lockfiles
+        if [ -f "$project_dir/pnpm-lock.yaml" ]; then
+            DETECTED_PKG_MGR="pnpm"
+        elif [ -f "$project_dir/yarn.lock" ]; then
+            DETECTED_PKG_MGR="yarn"
+        elif [ -f "$project_dir/bun.lockb" ]; then
+            DETECTED_PKG_MGR="bun"
+        elif [ -f "$project_dir/package-lock.json" ]; then
+            DETECTED_PKG_MGR="npm"
+        fi
+
+        # Detect test framework from devDependencies
+        local dev_deps
+        dev_deps=$(jq -r '.devDependencies // {} | keys[]' "$pkg_json" 2>/dev/null)
+        if echo "$dev_deps" | grep -q "^vitest$"; then
+            DETECTED_TEST_FW="Vitest"
+        elif echo "$dev_deps" | grep -q "^jest$"; then
+            DETECTED_TEST_FW="Jest"
+        elif echo "$dev_deps" | grep -q "^mocha$"; then
+            DETECTED_TEST_FW="Mocha"
+        elif echo "$dev_deps" | grep -q "^ava$"; then
+            DETECTED_TEST_FW="AVA"
+        fi
+
+        # Detect formatter/linter from devDependencies
+        if echo "$dev_deps" | grep -q "^@biomejs/biome$"; then
+            DETECTED_FORMATTER="Biome"
+        elif echo "$dev_deps" | grep -q "^biome$"; then
+            DETECTED_FORMATTER="Biome"
+        elif echo "$dev_deps" | grep -q "^prettier$"; then
+            if echo "$dev_deps" | grep -q "^eslint$"; then
+                DETECTED_FORMATTER="ESLint + Prettier"
+            else
+                DETECTED_FORMATTER="Prettier"
+            fi
+        elif echo "$dev_deps" | grep -q "^eslint$"; then
+            DETECTED_FORMATTER="ESLint"
+        fi
+    fi
+
+    # Detect test location
+    if [ -d "$project_dir/__tests__" ]; then
+        DETECTED_TEST_LOC="__tests__/ directory"
+    elif [ -d "$project_dir/tests" ]; then
+        DETECTED_TEST_LOC="tests/ directory"
+    elif [ -d "$project_dir/test" ]; then
+        DETECTED_TEST_LOC="test/ directory"
+    elif [ -d "$project_dir/src" ] && find "$project_dir/src" -name "*.test.*" -o -name "*.spec.*" 2>/dev/null | head -1 | grep -q .; then
+        DETECTED_TEST_LOC="co-located with source files"
+    fi
+
+    # Detect deployment platform from config files
+    if [ -f "$project_dir/vercel.json" ] || [ -f "$project_dir/.vercel/project.json" ]; then
+        DETECTED_DEPLOY="Vercel"
+    elif [ -f "$project_dir/netlify.toml" ]; then
+        DETECTED_DEPLOY="Netlify"
+    elif [ -f "$project_dir/fly.toml" ]; then
+        DETECTED_DEPLOY="Fly.io"
+    elif [ -f "$project_dir/railway.json" ]; then
+        DETECTED_DEPLOY="Railway"
+    elif [ -f "$project_dir/render.yaml" ]; then
+        DETECTED_DEPLOY="Render"
+    elif [ -f "$project_dir/Dockerfile" ]; then
+        DETECTED_DEPLOY="Docker"
+    elif [ -d "$project_dir/.aws" ] || [ -f "$project_dir/serverless.yml" ]; then
+        DETECTED_DEPLOY="AWS"
+    fi
+
+    # Detect CI/CD from config files
+    if [ -d "$project_dir/.github/workflows" ]; then
+        DETECTED_CICD="GitHub Actions"
+    elif [ -f "$project_dir/.gitlab-ci.yml" ]; then
+        DETECTED_CICD="GitLab CI"
+    elif [ -f "$project_dir/.circleci/config.yml" ]; then
+        DETECTED_CICD="CircleCI"
+    elif [ -f "$project_dir/Jenkinsfile" ]; then
+        DETECTED_CICD="Jenkins"
+    elif [ -f "$project_dir/bitbucket-pipelines.yml" ]; then
+        DETECTED_CICD="Bitbucket Pipelines"
+    elif [ -f "$project_dir/azure-pipelines.yml" ]; then
+        DETECTED_CICD="Azure Pipelines"
+    fi
+
+    # Detect config method
+    if [ -f "$project_dir/.env.example" ] || [ -f "$project_dir/.env.sample" ] || [ -f "$project_dir/.env.template" ]; then
+        DETECTED_CONFIG="environment variables (.env)"
+    elif [ -f "$project_dir/config/default.json" ] || [ -f "$project_dir/config/default.js" ]; then
+        DETECTED_CONFIG="config files (config/)"
+    fi
+
+    # Try to get description from README if not in package.json
+    if [ "$DETECTED_DESC" = "A software project" ]; then
+        local readme=""
+        for f in README.md readme.md README.MD Readme.md README; do
+            [ -f "$project_dir/$f" ] && readme="$project_dir/$f" && break
+        done
+        if [ -n "$readme" ]; then
+            # Try to extract first paragraph after title
+            local desc
+            desc=$(awk '/^#[^#]/{found=1; next} found && /^[^#\[]/ && !/^$/{print; exit}' "$readme" 2>/dev/null | head -c 200)
+            [ -n "$desc" ] && DETECTED_DESC="$desc"
+        fi
+    fi
+}
+
+setup_project_claude_md_existing() {
+    local project_dir="$1"
+    local claude_md="$2"
+
+    echo ""
+    echo "  This looks like an existing project. Analyzing codebase..."
+    echo ""
+
+    # Detect project info first
+    detect_project_info "$project_dir"
+
+    echo -e "  ${GREEN}✓${NC} Project analyzed. Confirm or adjust the detected values:"
+    echo ""
+
+    # Collect user preferences with auto-detected defaults
+    echo -ne "  Project name [$DETECTED_NAME]: "
+    read -r proj_name
+    proj_name="${proj_name:-$DETECTED_NAME}"
+
+    echo -ne "  Project description [$DETECTED_DESC]: "
+    read -r proj_desc
+    proj_desc="${proj_desc:-$DETECTED_DESC}"
+
+    echo -ne "  Test framework [$DETECTED_TEST_FW]: "
+    read -r test_fw
+    test_fw="${test_fw:-$DETECTED_TEST_FW}"
+
+    echo -ne "  Package manager [$DETECTED_PKG_MGR]: "
+    read -r pkg_mgr
+    pkg_mgr="${pkg_mgr:-$DETECTED_PKG_MGR}"
+
+    echo -ne "  Formatter/linter [$DETECTED_FORMATTER]: "
+    read -r formatter
+    formatter="${formatter:-$DETECTED_FORMATTER}"
+
+    echo -ne "  Test location [$DETECTED_TEST_LOC]: "
+    read -r test_loc
+    test_loc="${test_loc:-$DETECTED_TEST_LOC}"
+
+    echo -ne "  Config method [$DETECTED_CONFIG]: "
+    read -r config_method
+    config_method="${config_method:-$DETECTED_CONFIG}"
+
+    echo -ne "  Deployment platform [$DETECTED_DEPLOY]: "
+    read -r deploy_platform
+    deploy_platform="${deploy_platform:-$DETECTED_DEPLOY}"
+
+    echo -ne "  CI/CD [$DETECTED_CICD]: "
+    read -r cicd
+    cicd="${cicd:-$DETECTED_CICD}"
+
+    echo -ne "  Preferred language for Claude responses [Spanish]: "
+    read -r preferred_lang
+    preferred_lang="${preferred_lang:-Spanish}"
+
+    echo -ne "  Preferred language for code/comments/docs [English]: "
+    read -r code_lang
+    code_lang="${code_lang:-English}"
+
+    echo ""
+
+    local auto_generated=false
+
+    # Try to use 'claude /init' to auto-generate
+    if command -v claude &>/dev/null; then
+        echo -e "  Running 'claude /init' to generate CLAUDE.md..."
+        echo -e "  ${YELLOW}(This may take a minute)${NC}"
+        echo ""
+
+        # Run claude /init in the project directory
+        if (cd "$project_dir" && timeout 120 claude -p "/init" --dangerously-skip-permissions 2>/dev/null); then
+            # Check if CLAUDE.md was created
+            if [ -f "$claude_md" ] && [ -s "$claude_md" ]; then
+                auto_generated=true
+                echo -e "  ${GREEN}✓${NC} Auto-generated from project analysis"
+            fi
+        fi
+    fi
+
+    # If auto-generation failed, use template with detected values
+    if [ "$auto_generated" = false ]; then
+        echo -e "  ${YELLOW}!${NC} Could not auto-generate. Using template instead."
+        local template="$REPO_DIR/plugins/core/templates/project-minimal.md.template"
+        if [ -f "$template" ]; then
+            sed \
+                -e "s|{{PROJECT_NAME}}|$proj_name|g" \
+                -e "s|{{PROJECT_DESCRIPTION}}|$proj_desc|g" \
+                -e "s|{{TEST_FRAMEWORK}}|$test_fw|g" \
+                -e "s|{{PACKAGE_MANAGER}}|$pkg_mgr|g" \
+                -e "s|{{FORMATTER}}|$formatter|g" \
+                -e "s|{{TEST_LOCATION}}|$test_loc|g" \
+                -e "s|{{CONFIG_METHOD}}|$config_method|g" \
+                -e "s|{{DEPLOYMENT_PLATFORM}}|$deploy_platform|g" \
+                -e "s|{{CI_CD}}|$cicd|g" \
+                -e "s|{{PREFERRED_LANG}}|$preferred_lang|g" \
+                -e "s|{{CODE_LANG}}|$code_lang|g" \
+                "$template" > "$claude_md"
+        fi
+    fi
+
+    # Append user preferences section
+    cat >> "$claude_md" << EOF
+
+## User Preferences
+
+- **Test Framework**: $test_fw
+- **Package Manager**: $pkg_mgr
+- **Formatter/Linter**: $formatter
+- **Test Location**: $test_loc
+- **Config Method**: $config_method
+- **Deployment Platform**: $deploy_platform
+- **CI/CD**: $cicd
+
+## Language Preferences
+
+- Claude responses: $preferred_lang
+- Code, comments, JSDoc, docs: $code_lang
+EOF
+
+    # Append global rules if user-level doesn't have them
+    local user_claude_md="$HOME/.claude/CLAUDE.md"
+    if ! has_qazuor_global_rules "$user_claude_md"; then
+        inject_global_rules "$claude_md" "$preferred_lang"
+    fi
+
+    echo -e "  ${GREEN}✓${NC} Generated $claude_md"
     echo ""
 }
 
@@ -829,9 +1162,74 @@ is_plugin_installed() {
 
 is_marketplace_added() {
     local name="$1"
+    local repo="${2:-}"
     local known_file="$HOME/.claude/plugins/known_marketplaces.json"
     [ -f "$known_file" ] || return 1
-    jq -e --arg name "$name" '.[$name]' "$known_file" &>/dev/null
+
+    # Check by marketplace name
+    if jq -e --arg name "$name" '.[$name]' "$known_file" &>/dev/null; then
+        return 0
+    fi
+
+    # Check by repo name (last part of repo path, e.g., "ralph-loop-setup" from "MarioGiancini/ralph-loop-setup")
+    if [ -n "$repo" ]; then
+        local repo_name="${repo##*/}"
+        if jq -e --arg name "$repo_name" '.[$name]' "$known_file" &>/dev/null; then
+            return 0
+        fi
+    fi
+
+    # Check if directory exists in marketplaces folder
+    local marketplaces_dir="$HOME/.claude/plugins/marketplaces"
+    if [ -d "$marketplaces_dir/$name" ]; then
+        return 0
+    fi
+    if [ -n "$repo" ]; then
+        local repo_name="${repo##*/}"
+        if [ -d "$marketplaces_dir/$repo_name" ]; then
+            return 0
+        fi
+    fi
+
+    return 1
+}
+
+# ---------------------------------------------------------------------------
+# Claude-mem watchdog setup
+# ---------------------------------------------------------------------------
+setup_claude_mem_watchdog() {
+    local watchdog_src="$PLUGINS_DIR/core/scripts/claude-mem-watchdog.sh"
+    local watchdog_dst="$HOME/.claude-mem/watchdog.sh"
+
+    # Check if source exists
+    if [ ! -f "$watchdog_src" ]; then
+        echo -e "    ${YELLOW}~${NC} Watchdog script not found, skipping"
+        return 0
+    fi
+
+    # Check if claude-mem directory exists
+    if [ ! -d "$HOME/.claude-mem" ]; then
+        echo -e "    ${YELLOW}~${NC} claude-mem not initialized yet, skipping watchdog"
+        return 0
+    fi
+
+    # Copy watchdog script
+    cp "$watchdog_src" "$watchdog_dst"
+    chmod +x "$watchdog_dst"
+    echo -e "    ${GREEN}✓${NC} Watchdog script installed"
+
+    # Setup cron job (every 30 minutes)
+    local cron_entry="*/30 * * * * $watchdog_dst"
+    local current_cron
+    current_cron=$(crontab -l 2>/dev/null || echo "")
+
+    if echo "$current_cron" | grep -q "claude-mem.*watchdog"; then
+        echo -e "    ${GREEN}✓${NC} Watchdog cron already configured"
+    else
+        # Add cron entry
+        (echo "$current_cron"; echo "$cron_entry") | grep -v "^$" | crontab -
+        echo -e "    ${GREEN}✓${NC} Watchdog cron configured (every 30 min)"
+    fi
 }
 
 setup_external_plugins() {
@@ -845,7 +1243,7 @@ setup_external_plugins() {
     fi
 
     # Build list of not-yet-installed plugins
-    local missing=()
+    local missing_indices=()
     local total
     total=$(jq '.plugins | length' "$catalog")
 
@@ -856,54 +1254,120 @@ setup_external_plugins() {
         desc=$(jq -r ".plugins[$i].description" "$catalog")
 
         if is_plugin_installed "$plugin_id"; then
-            echo -e "  ${GREEN}✓${NC} $name — already installed"
+            echo -e "  ${GREEN}✓${NC} $name -- already installed"
         else
-            missing+=("$i")
-            echo -e "  ${YELLOW}○${NC} $name — $desc"
+            missing_indices+=("$i")
+            echo -e "  ${YELLOW}○${NC} $name -- $desc"
         fi
     done
 
-    [ ${#missing[@]} -eq 0 ] && {
+    [ ${#missing_indices[@]} -eq 0 ] && {
         echo -e "\n${GREEN}All recommended plugins are already installed!${NC}"
         return 0
     }
 
     echo ""
-    echo -ne "Install ${#missing[@]} recommended plugin(s)? [Y/n]: "
-    read -r answer
-    [[ "$answer" =~ ^[Nn] ]] && return 0
+    echo -e "  ${BLUE}Note:${NC} External plugins are always installed at user level"
+    echo -e "        (available in all projects)."
+    echo ""
 
-    # Install each missing plugin
-    for idx in "${missing[@]}"; do
-        local name marketplace repo plugin_id
+    # Per-plugin selection (always user scope)
+    for idx in "${missing_indices[@]}"; do
+        local name marketplace repo plugin_id desc
         name=$(jq -r ".plugins[$idx].name" "$catalog")
         marketplace=$(jq -r ".plugins[$idx].marketplace" "$catalog")
         repo=$(jq -r ".plugins[$idx].repo" "$catalog")
         plugin_id=$(jq -r ".plugins[$idx].pluginId" "$catalog")
+        desc=$(jq -r ".plugins[$idx].description" "$catalog")
 
-        echo -e "\n${CYAN}Installing $name...${NC}"
+        echo -ne "  Install ${CYAN}$name${NC} ($desc)? [Y/n]: "
+        read -r answer
+        [[ "$answer" =~ ^[Nn] ]] && continue
 
         # Add marketplace if not present
-        if ! is_marketplace_added "$marketplace"; then
-            echo -e "  Adding marketplace $repo..."
+        if ! is_marketplace_added "$marketplace" "$repo"; then
+            echo -e "    Adding marketplace $repo..."
             if claude plugin marketplace add "$repo" 2>&1; then
-                echo -e "  ${GREEN}✓${NC} Marketplace added"
+                echo -e "    ${GREEN}✓${NC} Marketplace added"
             else
-                echo -e "  ${RED}✗${NC} Failed to add marketplace $repo — skipping $name"
+                echo -e "    ${RED}✗${NC} Failed to add marketplace -- skipping $name"
                 continue
             fi
-        else
-            echo -e "  ${GREEN}✓${NC} Marketplace already registered"
         fi
 
-        # Install plugin
-        echo -e "  Installing plugin..."
-        if claude plugin install "$plugin_id" 2>&1; then
-            echo -e "  ${GREEN}✓${NC} $name installed successfully"
+        # Install at user level
+        echo -e "    Installing $name..."
+        if claude plugin install "$plugin_id" --scope user 2>&1; then
+            echo -e "    ${GREEN}✓${NC} $name installed"
+
+            # Setup watchdog for claude-mem
+            if [[ "$plugin_id" == *"claude-mem"* ]]; then
+                echo -e "    Setting up claude-mem watchdog..."
+                setup_claude_mem_watchdog
+            fi
         else
-            echo -e "  ${RED}✗${NC} Failed to install $name"
+            echo -e "    ${RED}✗${NC} Failed to install $name"
         fi
+        echo ""
     done
+}
+
+# ---------------------------------------------------------------------------
+# Interactive wizard (runs when no arguments are provided)
+# ---------------------------------------------------------------------------
+interactive_wizard() {
+    echo -e "${CYAN}No arguments provided. Starting interactive setup...${NC}"
+    echo ""
+
+    # Q1: Install mode (default: project-level)
+    echo -e "  ${BLUE}1.${NC} Installation mode?"
+    echo "     [P] Project-level (current directory) - recommended"
+    echo "     [U] User-level (all projects)"
+    echo -ne "     Choose [P/u]: "
+    read -r mode_choice
+    mode_choice="${mode_choice:-P}"
+    if [[ "$mode_choice" =~ ^[Uu] ]]; then
+        PROJECT_MODE=false
+    else
+        PROJECT_MODE=true
+        PROJECT_DIR="$(pwd)"
+    fi
+
+    # Q2: Profile (dynamic from profiles/ directory)
+    echo ""
+    echo -e "  ${BLUE}2.${NC} Profile?"
+    local profile_list=()
+    local i=1
+    for pf in "$SCRIPT_DIR/profiles"/*.json; do
+        [ -f "$pf" ] || continue
+        local pname pplugins
+        pname=$(jq -r '.name // "unknown"' "$pf")
+        pplugins=$(jq -r '.plugins | join(", ")' "$pf")
+        profile_list+=("$pname")
+        echo "     [$i] $pname -- $pplugins"
+        i=$((i + 1))
+    done
+    echo -ne "     Choose [1-${#profile_list[@]}]: "
+    read -r profile_choice
+    profile_choice="${profile_choice:-1}"
+    if [[ "$profile_choice" =~ ^[0-9]+$ ]] && \
+       [ "$profile_choice" -ge 1 ] && \
+       [ "$profile_choice" -le "${#profile_list[@]}" ]; then
+        PROFILE="${profile_list[$((profile_choice - 1))]}"
+    else
+        PROFILE="${profile_list[0]}"
+    fi
+
+    # Q3: MCP setup
+    echo ""
+    echo -e "  ${BLUE}3.${NC} Configure MCP API keys after install?"
+    echo -ne "     [y/N]: "
+    read -r mcp_choice
+    if [[ "$mcp_choice" =~ ^[Yy] ]]; then
+        SETUP_MCP=true
+    fi
+
+    echo ""
 }
 
 # Parse arguments
@@ -1000,6 +1464,18 @@ echo -e "${CYAN}║   Claude Code Plugins — Installer    ║${NC}"
 echo -e "${CYAN}╚══════════════════════════════════════╝${NC}"
 echo ""
 
+# If no profile/enable flags provided, run interactive wizard (unless dry-run or piped)
+if [ -z "$PROFILE" ] && [ ${#ENABLE_PLUGINS[@]} -eq 0 ] && \
+   [ "$DRY_RUN" = false ] && [ -t 0 ]; then
+    interactive_wizard
+    # Validate project dir if wizard set project mode
+    if [ "$PROJECT_MODE" = true ] && [ ! -d "$PROJECT_DIR" ]; then
+        echo -e "${RED}ERROR: Project directory does not exist: $PROJECT_DIR${NC}"
+        exit 1
+    fi
+    [ "$PROJECT_MODE" = true ] && PROJECT_DIR="$(cd "$PROJECT_DIR" && pwd)"
+fi
+
 if [ "$PROJECT_MODE" = true ]; then
     echo -e "${BLUE}Mode:${NC} Project-level"
     echo -e "${BLUE}Target:${NC} $PROJECT_DIR/.claude/"
@@ -1033,7 +1509,7 @@ if [ -n "$PROFILE" ]; then
 elif [ ${#ENABLE_PLUGINS[@]} -gt 0 ]; then
     PLUGINS_TO_INSTALL=("${ENABLE_PLUGINS[@]}")
 else
-    # Default: install all plugins
+    # Fallback: install all plugins (dry-run, piped, or no wizard ran)
     echo -e "${YELLOW}No profile or plugins specified. Installing all plugins.${NC}"
     for plugin_dir in "$PLUGINS_DIR"/*/; do
         [ -d "$plugin_dir" ] || continue
@@ -1130,10 +1606,19 @@ if [ "$PROJECT_MODE" = true ]; then
     CLAUDE_DIR="$PROJECT_DIR/.claude"
     mkdir -p "$CLAUDE_DIR"
 
+    # Build index of components already available at user level
+    build_user_level_component_index
+    total_user_components=$(( ${#USER_AGENTS[@]} + ${#USER_COMMANDS[@]} + ${#USER_SKILLS[@]} + ${#USER_DOCS[@]} + ${#USER_TEMPLATES[@]} ))
+    if [ "$total_user_components" -gt 0 ]; then
+        echo -e "${BLUE}Note:${NC} Found $total_user_components components at user level. Duplicates will be skipped."
+        echo ""
+    fi
+
     for plugin_name in "${PLUGINS_TO_INSTALL[@]}"; do
         plugin_dir="$PLUGINS_DIR/$plugin_name"
         if [ -d "$plugin_dir" ]; then
-            if install_plugin_project "$plugin_dir" "$CLAUDE_DIR"; then
+            # Pass true to skip plugins already enabled at user level
+            if install_plugin_project "$plugin_dir" "$CLAUDE_DIR" true; then
                 INSTALLED+=("$plugin_name")
             else
                 echo -e "  ${YELLOW}!${NC} Failed to install '$plugin_name', skipping"
@@ -1164,12 +1649,17 @@ if [ "$PROJECT_MODE" = true ]; then
         echo ""
     fi
 
-    # Merge MCP servers into .mcp.json at project root
+    # Merge MCP servers into .mcp.json at project root (skip user-level dupes)
     for plugin_name in "${INSTALLED[@]}"; do
         plugin_dir="$PLUGINS_DIR/$plugin_name"
         if [ -f "$plugin_dir/.mcp.json" ]; then
             echo -e "${CYAN}Merging MCP servers...${NC}"
-            merge_mcp "$plugin_dir" "$PROJECT_DIR"
+            # Build skip list from user-level config to avoid duplicates
+            skip_keys="[]"
+            if [ -f "$HOME/.claude.json" ]; then
+                skip_keys=$(jq '[.mcpServers // {} | keys[]]' "$HOME/.claude.json") || skip_keys="[]"
+            fi
+            merge_mcp "$plugin_dir" "$PROJECT_DIR" "$skip_keys"
             echo ""
             break  # Only one plugin has .mcp.json
         fi
@@ -1298,6 +1788,16 @@ if [ "$SKIP_EXTRAS" = false ] && [ "$DRY_RUN" = false ]; then
     echo ""
     setup_external_plugins
     echo ""
+fi
+
+# Setup claude-mem watchdog if already installed (for existing users)
+if [ "$DRY_RUN" = false ] && [ -d "$HOME/.claude-mem" ]; then
+    if [ ! -f "$HOME/.claude-mem/watchdog.sh" ] || \
+       ! crontab -l 2>/dev/null | grep -q "claude-mem.*watchdog"; then
+        echo -e "${CYAN}Claude-mem Watchdog${NC}"
+        setup_claude_mem_watchdog
+        echo ""
+    fi
 fi
 
 # Summary
