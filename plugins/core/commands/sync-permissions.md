@@ -39,6 +39,6 @@ $ARGUMENTS
 Run the sync script:
 
 ```bash
-PLUGIN_ROOT="$HOME/projects/TOOLS/claude-code-plugins/plugins/permissions-sync"
-"$PLUGIN_ROOT/scripts/sync-all.sh" $ARGUMENTS
+PLUGIN_ROOT="${CLAUDE_PLUGIN_ROOT:-$HOME/projects/TOOLS/claude-code-plugins/plugins/core}"
+"$PLUGIN_ROOT/scripts/permissions-sync-all.sh" $ARGUMENTS
 ```

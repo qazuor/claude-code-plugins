@@ -28,7 +28,7 @@ $ARGUMENTS
 Show permission status:
 
 ```bash
-PLUGIN_ROOT="$HOME/projects/TOOLS/claude-code-plugins/plugins/permissions-sync"
+PLUGIN_ROOT="${CLAUDE_PLUGIN_ROOT:-$HOME/projects/TOOLS/claude-code-plugins/plugins/core}"
 BASE_PERMS="$PLUGIN_ROOT/templates/base-permissions.json"
 PROJECT_SETTINGS=".claude/settings.local.json"
 
