@@ -1219,6 +1219,12 @@ setup_claude_mem_watchdog() {
     echo -e "    ${GREEN}✓${NC} Watchdog script installed"
 
     # Setup cron job (every 30 minutes)
+    # Skip if crontab is not available (e.g., in CI environments)
+    if ! command -v crontab &>/dev/null; then
+        echo -e "    ${YELLOW}~${NC} crontab not available, skipping cron setup"
+        return 0
+    fi
+
     local cron_entry="*/30 * * * * $watchdog_dst"
     local current_cron
     current_cron=$(crontab -l 2>/dev/null || echo "")
@@ -1226,9 +1232,12 @@ setup_claude_mem_watchdog() {
     if echo "$current_cron" | grep -q "claude-mem.*watchdog"; then
         echo -e "    ${GREEN}✓${NC} Watchdog cron already configured"
     else
-        # Add cron entry
-        (echo "$current_cron"; echo "$cron_entry") | grep -v "^$" | crontab -
-        echo -e "    ${GREEN}✓${NC} Watchdog cron configured (every 30 min)"
+        # Add cron entry (may fail in restricted environments)
+        if (echo "$current_cron"; echo "$cron_entry") | grep -v "^$" | crontab - 2>/dev/null; then
+            echo -e "    ${GREEN}✓${NC} Watchdog cron configured (every 30 min)"
+        else
+            echo -e "    ${YELLOW}~${NC} Could not configure cron (restricted environment)"
+        fi
     fi
 }
 
