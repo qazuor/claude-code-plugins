@@ -9,18 +9,11 @@
       "pluginId": "claude-mem@thedotmack"
     },
     {
-      "name": "diary",
-      "marketplace": "rlancemartin",
-      "repo": "rlancemartin/claude-diary",
-      "description": "Session diary entries and CLAUDE.md reflection",
-      "pluginId": "diary@rlancemartin"
-    },
-    {
       "name": "ralph-loop-setup",
-      "marketplace": "MarioGiancini",
+      "marketplace": "ralph-loop-setup",
       "repo": "MarioGiancini/ralph-loop-setup",
       "description": "Autonomous TDD loops (Ralph Wiggum technique)",
-      "pluginId": "ralph-loop-setup@MarioGiancini"
+      "pluginId": "ralph-loop-setup@ralph-loop-setup"
     }
   ]
 }

@@ -1,0 +1,86 @@
+# {{PROJECT_NAME}} - Claude Code Instructions
+
+## Project Overview
+
+{{PROJECT_DESCRIPTION}}
+
+## Tech Stack
+
+<!-- TODO: Review and complete this section -->
+- **Language**: <!-- TODO: Add language and version -->
+- **Runtime**: <!-- TODO: Add runtime (Node.js, Bun, Deno, etc.) -->
+- **Framework**: <!-- TODO: Add framework -->
+- **Database**: <!-- TODO: Add database if applicable -->
+- **ORM**: <!-- TODO: Add ORM if applicable -->
+- **Testing**: {{TEST_FRAMEWORK}}
+- **Package Manager**: {{PACKAGE_MANAGER}}
+- **Formatter/Linter**: {{FORMATTER}}
+
+## Project Structure
+
+<!-- TODO: Document your project structure -->
+```
+src/
+  ...
+```
+
+## Coding Standards
+
+<!-- TODO: Define your coding standards or reference external docs -->
+- TypeScript strict mode enabled
+- Named exports only (no default exports)
+- Maximum 500 lines per file
+
+## Naming Conventions
+
+<!-- TODO: Adjust to your project conventions -->
+- **Files (components)**: PascalCase (e.g., `UserProfile.tsx`)
+- **Files (other)**: kebab-case (e.g., `user-service.ts`)
+- **Variables/Functions**: camelCase
+- **Types/Classes**: PascalCase
+- **Constants**: UPPER_SNAKE_CASE
+
+## Architecture
+
+<!-- TODO: Document your architecture pattern and layers -->
+- Pattern: <!-- TODO: Layered, Clean Architecture, Feature-based, etc. -->
+- Layers: <!-- TODO: Define your layers -->
+
+## Testing
+
+- Framework: {{TEST_FRAMEWORK}}
+- Test file location: {{TEST_LOCATION}}
+- TDD workflow: Red -> Green -> Refactor
+<!-- TODO: Add coverage requirements and test naming conventions -->
+
+## Database
+
+<!-- TODO: Complete if applicable -->
+- ORM: <!-- TODO: Add ORM -->
+- Migrations: <!-- TODO: Add migration tool -->
+
+## Git & Commits
+
+- Conventional Commits: `<type>(<scope>): <description>`
+- Atomic commits only (never `git add .`)
+<!-- TODO: Define your commit scopes and branch naming -->
+
+## Environment
+
+- Configuration via: {{CONFIG_METHOD}}
+<!-- TODO: Document required environment variables -->
+
+## Deployment
+
+- Platform: {{DEPLOYMENT_PLATFORM}}
+- CI/CD: {{CI_CD}}
+<!-- TODO: Document environments and deployment process -->
+
+## Language Preferences
+
+- Claude responses: {{PREFERRED_LANG}}
+- Code, comments, JSDoc, docs: {{CODE_LANG}}
+
+## Additional Rules
+
+<!-- TODO: Add project-specific rules -->
