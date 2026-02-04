@@ -71,18 +71,35 @@ jobs:
           mcp_file="plugins/mcp-servers/.mcp.json"
           if [ -f "$mcp_file" ]; then
             # Check that mcpServers key exists and all servers have required fields
+            # Supports two formats: command-based (command+args) and HTTP (type:http+url)
             servers=$(jq -r '.mcpServers | keys[]' "$mcp_file" 2>/dev/null)
             errors=0
             for server in $servers; do
-              cmd=$(jq -r ".mcpServers[\"$server\"].command // empty" "$mcp_file")
-              if [ -z "$cmd" ]; then
-                echo "::error file=$mcp_file::Server '$server' missing required 'command' field"
-                errors=$((errors + 1))
-              fi
-              args=$(jq -r ".mcpServers[\"$server\"].args // empty" "$mcp_file")
-              if [ -z "$args" ]; then
-                echo "::error file=$mcp_file::Server '$server' missing required 'args' field"
-                errors=$((errors + 1))
+              server_type=$(jq -r ".mcpServers[\"$server\"].type // empty" "$mcp_file")
+              if [ "$server_type" = "http" ]; then
+                # HTTP endpoint: requires type and url
+                url=$(jq -r ".mcpServers[\"$server\"].url // empty" "$mcp_file")
+                if [ -z "$url" ]; then
+                  echo "::error file=$mcp_file::HTTP server '$server' missing required 'url' field"
+                  errors=$((errors + 1))
+                else
+                  echo "✓ $server (http)"
+                fi
+              else
+                # Command-based: requires command and args
+                cmd=$(jq -r ".mcpServers[\"$server\"].command // empty" "$mcp_file")
+                if [ -z "$cmd" ]; then
+                  echo "::error file=$mcp_file::Server '$server' missing required 'command' field"
+                  errors=$((errors + 1))
+                fi
+                args=$(jq -r ".mcpServers[\"$server\"].args // empty" "$mcp_file")
+                if [ -z "$args" ]; then
+                  echo "::error file=$mcp_file::Server '$server' missing required 'args' field"
+                  errors=$((errors + 1))
+                fi
+                if [ -n "$cmd" ] && [ -n "$args" ]; then
+                  echo "✓ $server (command)"
+                fi
               fi
             done
             if [ "$errors" -gt 0 ]; then

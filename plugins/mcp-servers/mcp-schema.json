@@ -30,29 +30,49 @@
   "definitions": {
     "mcpServer": {
       "type": "object",
-      "description": "Configuration for a single MCP server",
-      "properties": {
-        "command": {
-          "type": "string",
-          "description": "The command to execute (e.g., npx, node)"
+      "description": "Configuration for a single MCP server (command-based or HTTP)",
+      "oneOf": [
+        {
+          "properties": {
+            "command": {
+              "type": "string",
+              "description": "The command to execute (e.g., npx, node, uvx)"
+            },
+            "args": {
+              "type": "array",
+              "description": "Arguments passed to the command",
+              "items": {
+                "type": "string"
+              }
+            },
+            "env": {
+              "type": "object",
+              "description": "Environment variables for the server process",
+              "additionalProperties": {
+                "type": "string"
+              }
+            }
+          },
+          "required": ["command", "args"],
+          "additionalProperties": false
         },
-        "args": {
-          "type": "array",
-          "description": "Arguments passed to the command",
-          "items": {
-            "type": "string"
-          }
-        },
-        "env": {
-          "type": "object",
-          "description": "Environment variables for the server process",
-          "additionalProperties": {
-            "type": "string"
-          }
+        {
+          "properties": {
+            "type": {
+              "type": "string",
+              "const": "http",
+              "description": "Server type (http for remote endpoints)"
+            },
+            "url": {
+              "type": "string",
+              "format": "uri",
+              "description": "HTTP endpoint URL for the MCP server"
+            }
+          },
+          "required": ["type", "url"],
+          "additionalProperties": false
         }
-      },
-      "required": ["command", "args"],
-      "additionalProperties": false
+      ]
     }
   }
 }
