@@ -438,8 +438,8 @@ jobs:
           export HOME="$(mktemp -d)"
           mkdir -p "$HOME/.claude"
 
-          # Install
-          ./installer/install.sh --profile full-stack
+          # Install (--yes for non-interactive mode)
+          ./installer/install.sh --profile full-stack --yes
           echo "✓ Install completed"
 
           # Verify symlinks exist

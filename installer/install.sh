@@ -50,6 +50,7 @@ PROJECT_MODE=false
 PROJECT_DIR=""
 DRY_RUN=false
 SKIP_EXTRAS=false
+YES_MODE=false
 
 usage() {
     echo -e "${CYAN}Claude Code Plugins Installer${NC}"
@@ -63,6 +64,7 @@ usage() {
     echo "                       Uses current directory if no dir specified"
     echo "  --setup-mcp          Run interactive MCP API key setup after installation"
     echo "  --skip-extras        Skip recommended third-party plugins prompt"
+    echo "  --yes, -y            Non-interactive mode (accept defaults, skip prompts)"
     echo "  --dry-run            Show what would be installed without making changes"
     echo "  --list               List available plugins and profiles"
     echo "  --help               Show this help message"
@@ -654,6 +656,12 @@ setup_claude_md() {
     echo -e "${CYAN}Setting up ~/.claude/CLAUDE.md...${NC}"
     echo ""
 
+    # Skip interactive prompts in YES_MODE
+    if [ "$YES_MODE" = true ]; then
+        echo -e "  ${YELLOW}~${NC} Skipped (non-interactive mode)"
+        return 0
+    fi
+
     case "$state" in
         missing)
             echo "  Your CLAUDE.md is empty or has the default placeholder."
@@ -784,6 +792,13 @@ setup_project_claude_md() {
 
     echo -e "${CYAN}Setting up project CLAUDE.md...${NC}"
     echo ""
+
+    # Skip interactive prompts in YES_MODE
+    if [ "$YES_MODE" = true ]; then
+        echo -e "  ${YELLOW}~${NC} Skipped (non-interactive mode)"
+        return 0
+    fi
+
     echo -ne "  Generate project CLAUDE.md? [Y/n]: "
     read -r answer
     [[ "$answer" =~ ^[Nn] ]] && return 0
@@ -1416,6 +1431,11 @@ while [[ $# -gt 0 ]]; do
             shift
             ;;
         --skip-extras)
+            SKIP_EXTRAS=true
+            shift
+            ;;
+        --yes|-y)
+            YES_MODE=true
             SKIP_EXTRAS=true
             shift
             ;;
