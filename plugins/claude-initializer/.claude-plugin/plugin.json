@@ -1,0 +1,19 @@
+{
+  "name": "claude-initializer",
+  "version": "2.0.0",
+  "description": "Project initialization with CLAUDE.md generation, merge support, and settings templates",
+  "author": {
+    "name": "Qazuor",
+    "url": "https://github.com/qazuor"
+  },
+  "repository": "https://github.com/qazuor/claude-code-plugins",
+  "license": "MIT",
+  "keywords": [
+    "init",
+    "project",
+    "CLAUDE.md",
+    "settings",
+    "brand",
+    "templates"
+  ]
+}
