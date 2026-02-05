@@ -1,0 +1,16 @@
+{
+  "description": "Permission sync hooks for auto-learning and syncing permissions on session start",
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "${CLAUDE_PLUGIN_ROOT}/scripts/permissions-sync.sh",
+            "timeout": 15
+          }
+        ]
+      }
+    ]
+  }
+}

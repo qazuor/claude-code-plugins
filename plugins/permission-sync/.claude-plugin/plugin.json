@@ -1,0 +1,18 @@
+{
+  "name": "permission-sync",
+  "version": "2.0.0",
+  "description": "Auto-learn and synchronize Claude Code permissions across all projects",
+  "author": {
+    "name": "Qazuor",
+    "url": "https://github.com/qazuor"
+  },
+  "repository": "https://github.com/qazuor/claude-code-plugins",
+  "license": "MIT",
+  "keywords": [
+    "permissions",
+    "sync",
+    "security",
+    "settings",
+    "auto-learn"
+  ]
+}
