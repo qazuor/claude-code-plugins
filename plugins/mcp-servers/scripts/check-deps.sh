@@ -146,5 +146,5 @@ echo -e "  ${YELLOW}${WARN}${NC} servers missing configuration"
 echo ""
 
 if [ $WARN -gt 0 ]; then
-    echo "Run install.sh --setup-mcp to configure missing API keys."
+    echo "Configure missing API keys in your environment or Claude Code MCP settings."
 fi

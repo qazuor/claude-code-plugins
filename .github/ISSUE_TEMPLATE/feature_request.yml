@@ -12,12 +12,10 @@ body:
     attributes:
       label: Request Type
       options:
-        - New agent
-        - New command
-        - New skill
         - New plugin
         - New MCP server
-        - Installer improvement
+        - Knowledge component
+        - Plugin improvement
         - Documentation
         - Other
     validations:

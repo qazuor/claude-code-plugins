@@ -13,14 +13,13 @@ body:
       label: Plugin
       description: Which plugin is affected?
       options:
-        - core
+        - knowledge-sync
+        - permission-sync
+        - session-tools
+        - claude-initializer
         - notifications
-        - frameworks-frontend
-        - frameworks-backend
-        - frameworks-shared
         - task-master
         - mcp-servers
-        - installer
         - other
     validations:
       required: true
