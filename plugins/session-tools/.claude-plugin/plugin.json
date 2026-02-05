@@ -1,0 +1,19 @@
+{
+  "name": "session-tools",
+  "version": "2.0.0",
+  "description": "Session management tools including diary entries, reflections, and claude-mem watchdog",
+  "author": {
+    "name": "Qazuor",
+    "url": "https://github.com/qazuor"
+  },
+  "repository": "https://github.com/qazuor/claude-code-plugins",
+  "license": "MIT",
+  "keywords": [
+    "session",
+    "diary",
+    "reflection",
+    "memory",
+    "compact",
+    "claude-mem"
+  ]
+}
