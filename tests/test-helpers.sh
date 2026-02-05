@@ -203,6 +203,7 @@ assert_json_valid() {
 assert_json_has_key() {
     local file="$1"
     local key="$2"
+    # shellcheck disable=SC2016
     local msg="${3:-JSON has key '$key': $file}"
 
     if jq -e "$key" "$file" >/dev/null 2>&1; then

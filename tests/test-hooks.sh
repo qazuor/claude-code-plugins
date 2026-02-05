@@ -40,7 +40,8 @@ describe "Hook Structure"
 
 while IFS= read -r hooks_file; do
     [[ -f "$hooks_file" ]] || continue
-    plugin_name=$(echo "$hooks_file" | sed "s|$PROJECT_ROOT/plugins/||" | cut -d/ -f1)
+    relative_path="${hooks_file#"$PROJECT_ROOT/plugins/"}"
+    plugin_name="${relative_path%%/*}"
 
     it "hooks.json has 'hooks' key: $plugin_name"
     assert_json_has_key "$hooks_file" ".hooks" "$CURRENT_TEST"
@@ -84,7 +85,7 @@ while IFS= read -r hooks_file; do
                 assert_not_equals "" "$hook_cmd" "$CURRENT_TEST"
 
                 # Check that referenced script exists (resolve CLAUDE_PLUGIN_ROOT)
-                script_path=$(echo "$hook_cmd" | sed "s|\${CLAUDE_PLUGIN_ROOT}|$PROJECT_ROOT/plugins/$plugin_name|g")
+                script_path="${hook_cmd//\$\{CLAUDE_PLUGIN_ROOT\}/$PROJECT_ROOT/plugins/$plugin_name}"
                 it "Hook script exists: $(basename "$script_path")"
                 assert_file_exists "$script_path" "$CURRENT_TEST"
 

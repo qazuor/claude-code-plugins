@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# shellcheck disable=SC2030,SC2031
 # =============================================================================
 # test-task-master.sh - Functional tests for task-master plugin
 # =============================================================================

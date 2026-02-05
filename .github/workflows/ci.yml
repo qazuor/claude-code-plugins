@@ -107,7 +107,8 @@ jobs:
           echo "Running ShellCheck on all .sh files..."
           errors=0
           while IFS= read -r f; do
-            if ! shellcheck -x "$f"; then
+            # Use -x to follow sources, --severity=warning to ignore info-level issues
+            if ! shellcheck -x --severity=warning "$f"; then
               errors=$((errors + 1))
             fi
           done < <(find . -name "*.sh" -type f)

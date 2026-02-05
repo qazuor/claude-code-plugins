@@ -39,7 +39,7 @@ done
 # hooks.json files
 while IFS= read -r f; do
     [[ -f "$f" ]] || continue
-    name=$(echo "$f" | sed "s|$PROJECT_ROOT/||")
+    name="${f#"$PROJECT_ROOT/"}"
     it "hooks.json is valid JSON: $name"
     assert_json_valid "$f" "$CURRENT_TEST"
 done < <(find "$PROJECT_ROOT/plugins" -name "hooks.json" -path "*/hooks/*" -type f 2>/dev/null)
@@ -47,7 +47,7 @@ done < <(find "$PROJECT_ROOT/plugins" -name "hooks.json" -path "*/hooks/*" -type
 # Other JSON files
 while IFS= read -r f; do
     [[ -f "$f" ]] || continue
-    name=$(echo "$f" | sed "s|$PROJECT_ROOT/||")
+    name="${f#"$PROJECT_ROOT/"}"
     it "Valid JSON: $name"
     assert_json_valid "$f" "$CURRENT_TEST"
 done < <(find "$PROJECT_ROOT/plugins" -name "*.json" -not -path "*/hooks/*" -not -path "*/.claude-plugin/*" -type f 2>/dev/null)
@@ -103,7 +103,7 @@ done
 describe "Script Executability"
 
 while IFS= read -r f; do
-    name=$(echo "$f" | sed "s|$PROJECT_ROOT/||")
+    name="${f#"$PROJECT_ROOT/"}"
     it "Script is executable: $name"
     assert_executable "$f" "$CURRENT_TEST"
 done < <(find "$PROJECT_ROOT/plugins" -name "*.sh" -type f 2>/dev/null)
@@ -116,7 +116,8 @@ describe "Command Format (YAML Frontmatter)"
 while IFS= read -r cmd_file; do
     [[ -f "$cmd_file" ]] || continue
     cmd_name=$(basename "$cmd_file" .md)
-    plugin_name=$(echo "$cmd_file" | sed "s|$PROJECT_ROOT/plugins/||" | cut -d/ -f1)
+    relative_path="${cmd_file#"$PROJECT_ROOT/plugins/"}"
+    plugin_name="${relative_path%%/*}"
 
     # Check for frontmatter
     it "Command has frontmatter: $plugin_name/$cmd_name"
@@ -148,7 +149,8 @@ describe "Skill Format"
 while IFS= read -r dir; do
     [[ -d "$dir" ]] || continue
     skill_name=$(basename "$dir")
-    plugin_name=$(echo "$dir" | sed "s|$PROJECT_ROOT/plugins/||" | cut -d/ -f1)
+    relative_path="${dir#"$PROJECT_ROOT/plugins/"}"
+    plugin_name="${relative_path%%/*}"
 
     it "Skill has SKILL.md: $plugin_name/$skill_name"
     assert_file_exists "$dir/SKILL.md" "$CURRENT_TEST"
@@ -168,7 +170,8 @@ describe "Agent Format"
 while IFS= read -r agent_file; do
     [[ -f "$agent_file" ]] || continue
     agent_name=$(basename "$agent_file" .md)
-    plugin_name=$(echo "$agent_file" | sed "s|$PROJECT_ROOT/plugins/||" | cut -d/ -f1)
+    relative_path="${agent_file#"$PROJECT_ROOT/plugins/"}"
+    plugin_name="${relative_path%%/*}"
 
     it "Agent has frontmatter: $plugin_name/$agent_name"
     first_line=$(head -n 1 "$agent_file")
@@ -244,7 +247,7 @@ DELETED_PATHS=("plugins/core" "plugins/frameworks-frontend" "plugins/frameworks-
 
 while IFS= read -r f; do
     [[ -f "$f" ]] || continue
-    name=$(echo "$f" | sed "s|$PROJECT_ROOT/||")
+    name="${f#"$PROJECT_ROOT/"}"
 
     # Skip CHANGELOG.md (has intentional historical references)
     if [[ "$name" == "CHANGELOG.md" ]]; then
@@ -300,7 +303,7 @@ describe "JSON Schemas Well-Formed"
 
 while IFS= read -r schema_file; do
     [[ -f "$schema_file" ]] || continue
-    name=$(echo "$schema_file" | sed "s|$PROJECT_ROOT/||")
+    name="${schema_file#"$PROJECT_ROOT/"}"
 
     it "Schema is valid JSON: $name"
     assert_json_valid "$schema_file" "$CURRENT_TEST"

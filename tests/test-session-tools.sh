@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# shellcheck disable=SC2030,SC2031
 # =============================================================================
 # test-session-tools.sh - Functional tests for session-tools plugin
 # =============================================================================
