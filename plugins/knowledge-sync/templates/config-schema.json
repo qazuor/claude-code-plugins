@@ -1,0 +1,24 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Knowledge Sync Configuration",
+  "description": "Configuration for the knowledge-sync plugin",
+  "type": "object",
+  "properties": {
+    "repoUrl": {
+      "type": "string",
+      "description": "URL of the knowledge repository",
+      "default": "https://github.com/qazuor/claude-code-knowledge.git"
+    },
+    "cachePath": {
+      "type": "string",
+      "description": "Local path to the cached repository",
+      "default": "~/.claude/knowledge-sync/cache"
+    },
+    "lastPull": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Timestamp of the last git pull"
+    }
+  },
+  "required": ["repoUrl", "cachePath"]
+}

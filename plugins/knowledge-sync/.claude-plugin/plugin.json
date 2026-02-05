@@ -1,0 +1,21 @@
+{
+  "name": "knowledge-sync",
+  "version": "2.0.0",
+  "description": "Synchronize agents, skills, commands, docs, and templates from claude-code-knowledge repository to your projects",
+  "author": {
+    "name": "Qazuor",
+    "url": "https://github.com/qazuor"
+  },
+  "repository": "https://github.com/qazuor/claude-code-plugins",
+  "license": "MIT",
+  "keywords": [
+    "knowledge",
+    "sync",
+    "agents",
+    "skills",
+    "commands",
+    "docs",
+    "templates",
+    "auto-detect"
+  ]
+}

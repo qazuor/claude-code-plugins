@@ -1,0 +1,53 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Knowledge Sync Registry",
+  "description": "Registry tracking installed knowledge components per project",
+  "type": "object",
+  "properties": {
+    "projects": {
+      "type": "object",
+      "description": "Map of project paths to their installed components",
+      "additionalProperties": {
+        "type": "object",
+        "properties": {
+          "agents": {
+            "type": "array",
+            "items": { "type": "string" },
+            "description": "List of installed agent names"
+          },
+          "skills": {
+            "type": "array",
+            "items": { "type": "string" },
+            "description": "List of installed skill names"
+          },
+          "commands": {
+            "type": "array",
+            "items": { "type": "string" },
+            "description": "List of installed command names"
+          },
+          "docs": {
+            "type": "array",
+            "items": { "type": "string" },
+            "description": "List of installed doc names"
+          },
+          "templates": {
+            "type": "array",
+            "items": { "type": "string" },
+            "description": "List of installed template names"
+          },
+          "syncedAt": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Timestamp of last sync"
+          },
+          "syncedCommit": {
+            "type": "string",
+            "description": "Git commit SHA of last sync"
+          }
+        },
+        "required": ["agents", "skills", "commands", "docs", "templates", "syncedAt", "syncedCommit"]
+      }
+    }
+  },
+  "required": ["projects"]
+}
