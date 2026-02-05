@@ -1,130 +1,145 @@
 # Plugin Catalog
 
-Complete inventory of all components across all plugins.
+Complete inventory of all components in the claude-code-plugins repository (v2.0.0).
+
+> **Note:** Knowledge components (20 agents, 43 skills, 17 commands, 11 docs, 4 templates = 95 total) now live in the separate [claude-code-knowledge](https://github.com/qazuor/claude-code-knowledge) repository. This catalog only covers operational plugins.
 
 ## Summary
 
-| Plugin | Agents | Commands | Skills | Hooks | Docs | Templates | MCP | Total |
-|--------|--------|----------|--------|-------|------|-----------|-----|-------|
-| core | 11 | 21 | 23 | 0 | 11 | 6 | 0 | 72 |
-| notifications | 0 | 0 | 0 | 3 | 0 | 0 | 0 | 6 |
-| frameworks-frontend | 4 | 0 | 12 | 0 | 0 | 0 | 0 | 16 |
-| frameworks-backend | 4 | 0 | 4 | 0 | 0 | 0 | 0 | 8 |
-| frameworks-shared | 0 | 0 | 2 | 0 | 0 | 0 | 0 | 2 |
-| task-master | 3 | 6 | 7 | 1 | 0 | 7 | 0 | 24 |
-| mcp-servers | 0 | 0 | 0 | 0 | 0 | 0 | 30 | 30 |
-| **Total** | **22** | **27** | **48** | **4** | **11** | **13** | **30** | **158** |
+| Plugin | Commands | Hooks | Scripts | Skills | Agents | Templates | MCP | Total |
+|--------|----------|-------|---------|--------|--------|-----------|-----|-------|
+| knowledge-sync | 1 | 1 | 3 | 0 | 0 | 2 | 0 | 7 |
+| permission-sync | 2 | 1 | 2 | 0 | 0 | 1 | 0 | 6 |
+| session-tools | 2 | 1 | 2 | 0 | 0 | 0 | 0 | 5 |
+| claude-initializer | 1 | 0 | 0 | 0 | 0 | 4 | 0 | 5 |
+| notifications | 0 | 3 | 3 | 0 | 0 | 0 | 0 | 6 |
+| task-master | 6 | 1 | 1 | 7 | 3 | 7 | 0 | 25 |
+| mcp-servers | 0 | 0 | 1 | 0 | 0 | 0 | 30 | 31 |
+| **Total** | **12** | **7** | **12** | **7** | **3** | **14** | **30** | **85** |
 
 ---
 
-## core@qazuor
+## knowledge-sync@qazuor
 
-### Agents (11)
+Manages installation, updates, and synchronization of knowledge packs from the claude-code-knowledge registry. Detects project technologies and suggests relevant packs automatically.
 
-| Name | Description |
-|------|-------------|
-| tech-lead | Architectural oversight, code quality, security, deployment |
-| product-functional | PDR creation, user stories, acceptance criteria |
-| product-technical | Technical analysis, architecture design, implementation planning |
-| qa-engineer | Test planning, quality gates, coverage tracking |
-| debugger | Bug investigation, root cause analysis, Five Whys |
-| content-writer | UX copywriting, brand voice, multilingual content |
-| ux-ui-designer | UI design, user flows, WCAG accessibility |
-| node-typescript-engineer | Node.js/TypeScript implementation, shared packages |
-| code-reviewer | Systematic code review, pragmatic triage (Critical/Improvement/Nit) |
-| devops-engineer | CI/CD, Docker, deployment, infrastructure |
-| design-reviewer | Visual UI review with Playwright, 7-phase process |
-
-### Commands (21)
+### Commands (1)
 
 | Name | Description |
 |------|-------------|
-| /quality-check | Master validation: lint + test + review |
-| /code-check | Linting and type checking |
-| /run-tests | Test suite with coverage |
-| /security-audit | OWASP security assessment |
-| /performance-audit | Performance analysis |
-| /accessibility-audit | WCAG 2.1 AA compliance |
-| /add-new-entity | Scaffold new domain entity |
-| /update-docs | Comprehensive documentation update |
-| /five-why | Root cause analysis |
-| /format-markdown | Markdown formatting and linting |
-| /commit | Conventional commit message generation |
-| /create-agent | Create new agent wizard |
-| /create-command | Create new command wizard |
-| /create-skill | Create new skill wizard |
-| /help | Interactive help system |
-| /code-review | Invoke code reviewer |
-| /init-project | Initialize project configuration |
-| /check-deps | Dependency audit |
-| /generate-changelog | Changelog from git history |
-| /security-review | Enhanced security review with confidence scoring |
-| /design-review | Visual UI review |
+| /knowledge-sync | Unified command with subcommands.. setup, install, sync, remove, list, status |
 
-### Skills (23)
+### Hooks (1)
+
+| Name | Event | Description |
+|------|-------|-------------|
+| check-updates | SessionStart | Checks for knowledge pack updates on session start |
+
+### Scripts (3)
 
 | Name | Description |
 |------|-------------|
-| tdd-methodology | TDD Red-Green-Refactor workflow |
-| api-app-testing | API endpoint testing methodology |
-| web-app-testing | Web application E2E testing |
-| performance-testing | Performance testing methodology |
-| security-testing | Security testing (OWASP Top 10) |
-| qa-criteria-validator | Acceptance criteria validation |
-| security-audit | Security audit patterns and checklists |
-| performance-audit | Performance audit patterns |
-| accessibility-audit | WCAG 2.1 AA audit patterns |
-| error-handling-patterns | Error class hierarchies and recovery |
-| git-commit-helper | Conventional commit message generation |
-| markdown-formatter | Markdown formatting rules |
-| json-data-auditor | JSON data validation and quality |
-| mermaid-diagram-specialist | Mermaid diagram creation patterns |
-| monorepo-patterns | Monorepo architecture patterns |
-| zod-patterns | Zod validation patterns |
-| ci-cd-patterns | CI/CD pipeline patterns |
-| env-validation | Environment variable validation |
-| tech-writing | Documentation patterns (JSDoc, OpenAPI, ADR) |
-| i18n-patterns | Internationalization patterns |
-| seo-patterns | SEO optimization patterns |
-| frontend-design | Pre-coding design process (Anthropic) |
-| react-performance | 40+ React performance rules (Vercel) |
+| check-updates.sh | Compares installed versions against registry, notifies of available updates |
+| sync.sh | Downloads and installs knowledge packs from the registry |
+| detect.sh | Scans project files to detect technologies and suggest matching packs |
 
-### Docs (11)
+### Templates (2)
 
 | Name | Description |
 |------|-------------|
-| api-design-standards | REST API design standards |
-| architecture-patterns | Layer architecture, SOLID, DRY |
-| atomic-commits | Conventional commits policy |
-| code-standards | TypeScript coding standards |
-| development-workflow | Full SDD+TDD development workflow |
-| documentation-standards | JSDoc, OpenAPI, ADR format |
-| glossary | Plugin system terminology |
-| performance-standards | Core Web Vitals, query optimization |
-| quick-start | Getting started guide |
-| security-standards | OWASP Top 10, input validation |
-| testing-standards | TDD workflow, coverage targets |
+| config-schema.json | JSON Schema for knowledge-sync local configuration |
+| registry-schema.json | JSON Schema for the knowledge pack registry format |
 
-### Templates (6)
+---
+
+## permission-sync@qazuor
+
+Synchronizes Claude Code permission rules (.claude/settings.json) across projects. Provides a base template and tools to apply, diff, and manage permissions consistently.
+
+### Commands (2)
 
 | Name | Description |
 |------|-------------|
-| global.md.template | CLAUDE.md for global settings |
-| project-generic.md.template | CLAUDE.md for projects |
-| settings-template.json | Claude Code settings |
-| brand-config.json.template | Brand configuration |
-| security-review.yml | GitHub Action for security review |
-| code-review.yml | GitHub Action for code review |
+| /sync-permissions | Apply base permissions template to current project |
+| /show-permissions | Display current permission rules and diff against base template |
+
+### Hooks (1)
+
+| Name | Event | Description |
+|------|-------|-------------|
+| permissions-sync | SessionStart | Auto-syncs permissions on session start |
+
+### Scripts (2)
+
+| Name | Description |
+|------|-------------|
+| permissions-sync.sh | Syncs permissions for the current project |
+| permissions-sync-all.sh | Batch-syncs permissions across all configured projects |
+
+### Templates (1)
+
+| Name | Description |
+|------|-------------|
+| base-permissions.json | Base permission rules template applied to all projects |
+
+---
+
+## session-tools@qazuor
+
+Session lifecycle utilities.. diary entries for session context and reflection prompts for compact-safe summaries.
+
+### Commands (2)
+
+| Name | Description |
+|------|-------------|
+| /diary | Create or append a diary entry for the current session |
+| /reflect | Generate a structured reflection of the current session state |
+
+### Hooks (1)
+
+| Name | Event | Description |
+|------|-------|-------------|
+| pre-compact-diary | PreCompact | Writes a diary snapshot before context compaction |
+
+### Scripts (2)
+
+| Name | Description |
+|------|-------------|
+| pre-compact-diary.sh | Captures session state into a diary entry before compaction |
+| claude-mem-watchdog.sh | Monitors claude-mem integration health |
+
+---
+
+## claude-initializer@qazuor
+
+Project bootstrapping.. generates CLAUDE.md files, settings templates, and brand configuration for new or existing projects.
+
+### Commands (1)
+
+| Name | Description |
+|------|-------------|
+| /init-project | Interactive project initialization wizard |
+
+### Templates (4)
+
+| Name | Description |
+|------|-------------|
+| global.md.template | CLAUDE.md template for global (~/.claude/) settings |
+| global-rules-block.md.template | Reusable rules block for inclusion in global CLAUDE.md |
+| settings-template.json | Claude Code settings.json template |
+| brand-config.json.template | Brand voice and identity configuration |
 
 ---
 
 ## notifications@qazuor
 
+Desktop notifications and audio feedback for session events.. completion beeps, TTS announcements, and subagent alerts.
+
 ### Hooks (3)
 
 | Name | Event | Description |
 |------|-------|-------------|
-| on-notification | Notification | Desktop notification + TTS audio |
+| on-notification | Notification | Desktop notification + TTS audio via piper |
 | stop-beep | Stop | Main session completion beep |
 | subagent-beep | SubagentStop | Subagent completion beep |
 
@@ -138,70 +153,9 @@ Complete inventory of all components across all plugins.
 
 ---
 
-## frameworks-frontend@qazuor
-
-### Agents (4)
-
-| Name | Description |
-|------|-------------|
-| astro-engineer | Astro islands, SSG/SSR, Content Collections |
-| react-senior-dev | React 19, hooks, Server Components |
-| tanstack-start-engineer | TanStack Start full-stack framework |
-| nextjs-engineer | Next.js App Router, SSR/SSG/ISR |
-
-### Skills (12)
-
-| Name | Description |
-|------|-------------|
-| react-patterns | Components, hooks, compound patterns |
-| vercel-react-best-practices | 57 React/Next.js performance rules from Vercel Engineering |
-| zustand-patterns | Stores, slices, middleware, persist |
-| react-hook-form-patterns | Forms + Zod, useFieldArray, Controller |
-| tanstack-patterns | TanStack ecosystem overview |
-| astro-patterns | Islands, routing, content collections |
-| shadcn-specialist | Components, theming, cva variants |
-| vercel-specialist | Deployment, edge functions, ISR |
-| nextjs-patterns | App Router, Server Components, caching |
-| tanstack-router-patterns | Type-safe routing, loaders, search params |
-| tanstack-table-patterns | Columns, sorting, filtering, pagination |
-| tanstack-query-patterns | Data fetching, cache, optimistic updates |
-
----
-
-## frameworks-backend@qazuor
-
-### Agents (4)
-
-| Name | Description |
-|------|-------------|
-| hono-engineer | Hono API routes, middleware, validation |
-| db-drizzle-engineer | Drizzle ORM schemas, migrations, relations |
-| nestjs-engineer | NestJS modules, DI, guards, pipes |
-| prisma-engineer | Prisma schema, Client API, migrations |
-
-### Skills (4)
-
-| Name | Description |
-|------|-------------|
-| hono-patterns | Middleware, routes, factory patterns |
-| drizzle-patterns | Schema, relations, migrations, queries |
-| nestjs-patterns | Modules, DI, guards, pipes, interceptors |
-| prisma-patterns | Schema, Client, migrations, relations |
-
----
-
-## frameworks-shared@qazuor
-
-### Skills (2)
-
-| Name | Description |
-|------|-------------|
-| docker-patterns | Dockerfile, multi-stage, compose |
-| github-actions-patterns | Workflows, jobs, caching, matrix builds |
-
----
-
 ## task-master@qazuor
+
+Full-featured task management pipeline.. from specs to atomic tasks with dependency tracking, complexity scoring, and quality gates.
 
 ### Agents (3)
 
@@ -234,6 +188,18 @@ Complete inventory of all components across all plugins.
 | task-from-spec | Orchestrates atomizer + scorer + grapher |
 | spec-generator | Transforms plans into formal specs |
 
+### Hooks (1)
+
+| Name | Event | Description |
+|------|-------|-------------|
+| session-resume | SessionStart | Restores task context on session start |
+
+### Scripts (1)
+
+| Name | Description |
+|------|-------------|
+| session-resume.sh | Loads active task state into session context |
+
 ### Templates (7)
 
 | Name | Description |
@@ -249,6 +215,8 @@ Complete inventory of all components across all plugins.
 ---
 
 ## mcp-servers@qazuor
+
+Pre-configured MCP server definitions ready for inclusion in Claude Code settings. 30 servers covering reasoning, documentation, search, file ops, browsers, databases, cloud services, and integrations.
 
 ### MCP Servers (30)
 
@@ -284,3 +252,9 @@ Complete inventory of all components across all plugins.
 | slack | Messaging | Yes |
 | redis-upstash | Cache/Queue | Yes |
 | prisma | ORM | No |
+
+### Scripts (1)
+
+| Name | Description |
+|------|-------------|
+| check-deps.sh | Verifies required binaries and API keys for selected MCP servers |

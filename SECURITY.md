@@ -4,6 +4,7 @@
 
 | Version | Supported |
 |---------|-----------|
+| 2.0.x   | Yes       |
 | 1.0.x   | Yes       |
 
 ## Reporting a Vulnerability
@@ -44,7 +45,7 @@ This project follows these security practices:
 
 The following are in scope for security reports:
 
-- Shell injection in installer or plugin scripts
+- Shell injection in plugin scripts
 - Path traversal vulnerabilities
 - Credential exposure in configuration or logs
 - Unsafe file permission handling

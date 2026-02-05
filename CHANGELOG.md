@@ -5,6 +5,44 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.0.0] - 2026-02-05
+
+Major restructuring: separated knowledge components into external repository and reorganized plugins.
+
+### Added
+
+- **knowledge-sync@qazuor** (v2.0.0) .. Sync agents, skills, commands, docs, and templates from claude-code-knowledge repository
+  - 1 command (/knowledge-sync with subcommands: setup, install, sync, remove, list, status)
+  - SessionStart hook for automatic update checking
+  - Auto-detection of project dependencies for smart component suggestions
+- **permission-sync@qazuor** (v2.0.0) .. Extracted from core plugin
+  - 2 commands (/sync-permissions, /show-permissions)
+  - SessionStart hook for automatic permission sync
+- **session-tools@qazuor** (v2.0.0) .. Extracted from core plugin
+  - 2 commands (/diary, /reflect)
+  - PreCompact hook for automatic diary entries
+  - claude-mem watchdog script
+- **claude-initializer@qazuor** (v2.0.0) .. Extracted from core plugin
+  - 1 command (/init-project)
+  - 4 templates (global.md, global-rules-block.md, settings, brand-config)
+- **claude-code-knowledge** repository .. External knowledge base with 95 components
+  - 20 agents, 43 skills, 17 commands, 11 docs, 4 templates
+  - catalog.json with tags and dependency detectors
+
+### Removed
+
+- **core@qazuor** .. Redistributed into specialized plugins and knowledge repository
+- **frameworks-frontend@qazuor** .. Moved to claude-code-knowledge repository
+- **frameworks-backend@qazuor** .. Moved to claude-code-knowledge repository
+- **frameworks-shared@qazuor** .. Moved to claude-code-knowledge repository
+- **installer/** directory .. Replaced by plugin system and knowledge-sync
+
+### Changed
+
+- **notifications@qazuor** .. No changes, retained as-is
+- **task-master@qazuor** .. No changes, retained as-is
+- **mcp-servers@qazuor** .. No changes, retained as-is
+
 ## [1.0.0] - 2026-01-31
 
 Initial public release of the Claude Code Plugins Marketplace.
@@ -64,4 +102,5 @@ Initial public release of the Claude Code Plugins Marketplace.
 - CATALOG.md with full component inventory (158 components)
 - LICENSE (MIT)
 
+[2.0.0]: https://github.com/qazuor/claude-code-plugins/releases/tag/v2.0.0
 [1.0.0]: https://github.com/qazuor/claude-code-plugins/releases/tag/v1.0.0

@@ -1,8 +1,8 @@
 {
   "name": "@qazuor/claude-code-plugins",
   "private": true,
-  "version": "1.0.0",
-  "description": "Marketplace of Claude Code plugins — agents, commands, skills, hooks, templates, and MCP server configurations",
+  "version": "2.0.0",
+  "description": "Collection of Claude Code plugins for knowledge sync, permissions, session tools, notifications, task management, and MCP servers",
   "author": {
     "name": "Qazuor",
     "url": "https://github.com/qazuor"
@@ -16,6 +16,18 @@
   },
   "homepage": "https://github.com/qazuor/claude-code-plugins#readme",
   "license": "MIT",
+  "scripts": {
+    "test": "bash tests/run-all.sh",
+    "test:structure": "bash tests/test-structure.sh",
+    "test:hooks": "bash tests/test-hooks.sh",
+    "test:permissions-sync": "bash tests/test-permissions-sync.sh",
+    "test:knowledge-sync": "bash tests/test-knowledge-sync.sh",
+    "test:session-tools": "bash tests/test-session-tools.sh",
+    "test:notifications": "bash tests/test-notifications.sh",
+    "test:task-master": "bash tests/test-task-master.sh",
+    "test:mcp-servers": "bash tests/test-mcp-servers.sh",
+    "test:claude-initializer": "bash tests/test-claude-initializer.sh"
+  },
   "keywords": [
     "claude-code",
     "plugins",
@@ -24,10 +36,5 @@
     "commands",
     "mcp-servers",
     "marketplace"
-  ],
-  "scripts": {
-    "install-plugins": "./installer/install.sh",
-    "uninstall-plugins": "./installer/uninstall.sh",
-    "update-plugins": "./installer/update.sh"
-  }
+  ]
 }
