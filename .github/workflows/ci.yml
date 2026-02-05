@@ -30,23 +30,6 @@ jobs:
             exit 1
           fi
 
-      - name: Validate profile JSON files
-        run: |
-          echo "Validating profile files..."
-          errors=0
-          for f in installer/profiles/*.json; do
-            if ! jq empty "$f" 2>/dev/null; then
-              echo "::error file=$f::Invalid JSON"
-              errors=$((errors + 1))
-            else
-              echo "✓ $f"
-            fi
-          done
-          if [ "$errors" -gt 0 ]; then
-            echo "::error::$errors profile(s) failed validation"
-            exit 1
-          fi
-
       - name: Validate other JSON files
         run: |
           echo "Validating other JSON files..."
@@ -130,35 +113,6 @@ jobs:
           done < <(find . -name "*.sh" -type f)
           if [ "$errors" -gt 0 ]; then
             echo "::error::$errors script(s) failed ShellCheck"
-            exit 1
-          fi
-
-  profile-verification:
-    name: Verify profiles reference existing plugins
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Check profile plugin references
-        run: |
-          echo "Verifying profile plugin references..."
-          errors=0
-          available_plugins=$(ls -d plugins/*/ | xargs -I{} basename {})
-          for profile in installer/profiles/*.json; do
-            profile_name=$(basename "$profile")
-            echo "Checking $profile_name..."
-            plugins=$(jq -r '.plugins[]' "$profile")
-            for plugin in $plugins; do
-              if ! echo "$available_plugins" | grep -qx "$plugin"; then
-                echo "::error file=$profile::Plugin '$plugin' referenced in $profile_name does not exist"
-                errors=$((errors + 1))
-              else
-                echo "  ✓ $plugin"
-              fi
-            done
-          done
-          if [ "$errors" -gt 0 ]; then
-            echo "::error::$errors plugin reference(s) are invalid"
             exit 1
           fi
 
@@ -372,6 +326,15 @@ jobs:
             echo "✓ All command files follow kebab-case convention"
           fi
 
+  test-suite:
+    name: Run test suite
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Run tests
+        run: bash tests/run-all.sh
+
   agent-format:
     name: Validate agent format
     runs-on: ubuntu-latest
@@ -420,51 +383,3 @@ jobs:
             echo "✓ All agents have valid frontmatter"
           fi
 
-  installer-test:
-    name: Test installer scripts
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Run installer unit tests
-        run: ./installer/test-installer.sh
-
-      - name: Test dry-run mode
-        run: ./installer/install.sh --profile full-stack --dry-run
-
-      - name: Test user-level install and uninstall
-        run: |
-          # Use a temp HOME to avoid modifying the runner
-          export HOME="$(mktemp -d)"
-          mkdir -p "$HOME/.claude"
-
-          # Install (--yes for non-interactive mode)
-          ./installer/install.sh --profile full-stack --yes
-          echo "✓ Install completed"
-
-          # Verify symlinks exist
-          for plugin in core notifications frameworks-frontend frameworks-backend frameworks-shared task-master mcp-servers; do
-            if [ ! -d "$HOME/.claude/plugins/cache/qazuor/$plugin" ]; then
-              echo "::error::Plugin '$plugin' symlink not found after install"
-              exit 1
-            fi
-          done
-          echo "✓ All symlinks verified"
-
-          # Verify settings.json was updated
-          if ! jq -e '.enabledPlugins' "$HOME/.claude/settings.json" > /dev/null 2>&1; then
-            echo "::error::settings.json not updated with enabledPlugins"
-            exit 1
-          fi
-          echo "✓ settings.json updated"
-
-          # Uninstall
-          echo "y" | ./installer/uninstall.sh
-          echo "✓ Uninstall completed"
-
-          # Verify cleanup
-          if [ -d "$HOME/.claude/plugins/cache/qazuor" ]; then
-            echo "::error::Plugin cache not removed after uninstall"
-            exit 1
-          fi
-          echo "✓ Cleanup verified"
