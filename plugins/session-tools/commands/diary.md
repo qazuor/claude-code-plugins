@@ -1,5 +1,7 @@
 ---
+name: diary
 description: Create a structured diary entry from the current session transcript
+allowed-tools: Bash, Read, Write
 ---
 
 # Create Diary Entry from Current Session

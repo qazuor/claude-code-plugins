@@ -1,5 +1,7 @@
 ---
+name: show-permissions
 description: Display the current state of permissions comparing base vs project
+allowed-tools: Bash, Read
 ---
 
 # Show Permissions

@@ -1,5 +1,7 @@
 ---
+name: knowledge-sync
 description: Manage knowledge components (agents, skills, commands, docs, templates) from claude-code-knowledge repository
+allowed-tools: Bash, Read, Write, Glob
 ---
 
 # Knowledge Sync Command

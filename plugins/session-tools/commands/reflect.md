@@ -1,5 +1,7 @@
 ---
+name: reflect
 description: Analyze diary entries to identify patterns and propose CLAUDE.md updates
+allowed-tools: Bash, Read, Write, Edit
 ---
 
 # Reflect on Diary Entries and Synthesize Insights

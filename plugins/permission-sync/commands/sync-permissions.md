@@ -1,5 +1,7 @@
 ---
+name: sync-permissions
 description: Manually synchronize permissions between base configuration and current project
+allowed-tools: Bash, Read, Write
 ---
 
 # Sync Permissions
