@@ -1,0 +1,57 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Auto-Loop State",
+  "description": "Schema for the auto-loop state file (.claude/auto-loop.local.md YAML frontmatter)",
+  "type": "object",
+  "required": ["iteration", "max_iterations", "scope", "started_at", "completed_tasks", "completion_promise"],
+  "properties": {
+    "iteration": {
+      "type": "integer",
+      "minimum": 1,
+      "description": "Current iteration number (1-based)"
+    },
+    "max_iterations": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 50,
+      "description": "Maximum number of iterations before stopping"
+    },
+    "scope": {
+      "type": "string",
+      "enum": ["auto", "selected"],
+      "description": "Whether to auto-select tasks or use a specific list"
+    },
+    "task_ids": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "pattern": "^T-\\d{3}$"
+      },
+      "description": "Specific task IDs to process (only when scope is 'selected')"
+    },
+    "started_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "ISO 8601 timestamp when the loop started"
+    },
+    "current_task": {
+      "type": ["string", "null"],
+      "pattern": "^T-\\d{3}$",
+      "description": "Task ID currently being worked on, null if between tasks"
+    },
+    "completed_tasks": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "pattern": "^T-\\d{3}$"
+      },
+      "description": "List of task IDs completed during this loop"
+    },
+    "completion_promise": {
+      "type": "string",
+      "enum": ["quality-gate", "manual"],
+      "description": "How task completion is verified"
+    }
+  },
+  "additionalProperties": false
+}

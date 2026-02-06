@@ -1,5 +1,5 @@
 {
-  "description": "Session context restoration for task management",
+  "description": "Session context restoration and autonomous loop management for task management",
   "hooks": {
     "SessionStart": [
       {
@@ -8,6 +8,17 @@
             "type": "command",
             "command": "${CLAUDE_PLUGIN_ROOT}/scripts/session-resume.sh",
             "timeout": 10
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "${CLAUDE_PLUGIN_ROOT}/scripts/auto-loop-stop.sh",
+            "timeout": 15
           }
         ]
       }
