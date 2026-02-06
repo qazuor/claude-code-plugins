@@ -338,6 +338,57 @@ Show status for all registered projects.
 - Run `setup` once before using any other subcommand
 - The SessionStart hook automatically checks for updates silently
 
+---
+
+## Implementation Guidelines (MUST FOLLOW)
+
+**CRITICAL: Follow these rules to avoid errors in command output.**
+
+### JSON Processing
+
+- **ALWAYS use `jq`** for ALL JSON operations. NEVER use Python, Node.js, or other alternatives.
+- Example: `jq -r '.components[]' catalog.json` (correct)
+- Never: `python3 -c "import json..."` (wrong - will cause errors)
+
+### Directory and File Operations
+
+- **ALWAYS suppress errors** when checking directories that might not exist:
+  ```bash
+  # CORRECT - no error output
+  ls .claude/agents/ 2>/dev/null || true
+
+  # WRONG - shows "Exit code 2" error
+  ls .claude/agents/
+  ```
+
+- **Check existence before listing**:
+  ```bash
+  # CORRECT
+  [ -d ".claude/agents" ] && ls .claude/agents/ || echo "(none)"
+
+  # WRONG
+  ls .claude/agents/ 2>/dev/null
+  ```
+
+- **Combine multiple directory checks cleanly**:
+  ```bash
+  # CORRECT - single command, no errors
+  for dir in agents skills commands docs templates; do
+    echo "=== $dir ==="
+    [ -d ".claude/$dir" ] && ls ".claude/$dir" 2>/dev/null || echo "(none)"
+  done
+  ```
+
+### Error Handling
+
+- Add `2>/dev/null` to commands that might fail on missing files/directories
+- Add `|| true` when exit codes don't matter
+- Never let failed `ls`, `cat`, or `grep` commands produce visible errors
+
+---
+
 $ARGUMENTS
 
-Parse the subcommand and options from `$ARGUMENTS` and execute the appropriate action described above. Use bash commands for file operations and git commands. Use jq for JSON processing. Present results clearly to the user.
+Parse the subcommand and options from `$ARGUMENTS` and execute the appropriate action described above.
+
+**Remember**: Use ONLY `jq` for JSON. Suppress all errors from optional directory/file checks. Present clean results to the user with NO error messages in the output.
