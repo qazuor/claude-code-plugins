@@ -5,6 +5,24 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.0.1] - 2026-02-06
+
+Documentation and marketplace improvements.
+
+### Added
+
+- **Marketplace support** .. Added `.claude-plugin/marketplace.json` for plugin discovery via Claude Code's plugin system
+- **Comprehensive README** .. Complete rewrite with detailed documentation for each plugin, installation guide, usage examples, and configuration reference
+
+### Fixed
+
+- **ShellCheck compliance** .. Fixed all ShellCheck warnings in test files (SC2001, SC2016, SC2030, SC2031)
+- **CI configuration** .. Updated ShellCheck to use `--severity=warning` to ignore info-level messages
+
+### Changed
+
+- **Installation method** .. Now uses Claude Code's native marketplace system instead of manual paths
+
 ## [2.0.0] - 2026-02-05
 
 Major restructuring: separated knowledge components into external repository and reorganized plugins.
@@ -18,6 +36,7 @@ Major restructuring: separated knowledge components into external repository and
 - **permission-sync@qazuor** (v2.0.0) .. Extracted from core plugin
   - 2 commands (/sync-permissions, /show-permissions)
   - SessionStart hook for automatic permission sync
+  - Bidirectional sync: learns new permissions from projects, syncs base to all projects
 - **session-tools@qazuor** (v2.0.0) .. Extracted from core plugin
   - 2 commands (/diary, /reflect)
   - PreCompact hook for automatic diary entries
@@ -28,6 +47,11 @@ Major restructuring: separated knowledge components into external repository and
 - **claude-code-knowledge** repository .. External knowledge base with 95 components
   - 20 agents, 43 skills, 17 commands, 11 docs, 4 templates
   - catalog.json with tags and dependency detectors
+- **Test suite** .. 632 tests covering all plugins
+  - Structural validation (JSON, manifests, naming)
+  - Hook configuration validation
+  - Functional tests for each plugin
+  - CI integration
 
 ### Removed
 
@@ -102,5 +126,6 @@ Initial public release of the Claude Code Plugins Marketplace.
 - CATALOG.md with full component inventory (158 components)
 - LICENSE (MIT)
 
+[2.0.1]: https://github.com/qazuor/claude-code-plugins/compare/v2.0.0...HEAD
 [2.0.0]: https://github.com/qazuor/claude-code-plugins/releases/tag/v2.0.0
 [1.0.0]: https://github.com/qazuor/claude-code-plugins/releases/tag/v1.0.0

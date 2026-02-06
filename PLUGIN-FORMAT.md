@@ -1,7 +1,22 @@
 # Plugin Format Specification
 
 This document describes the canonical format for Claude Code plugins in this marketplace.
-Formats are aligned with the official [Claude Code documentation](https://code.claude.com/docs).
+Formats are aligned with the official [Claude Code documentation](https://docs.anthropic.com/en/docs/claude-code).
+
+## Table of Contents
+
+- [Directory Structure](#directory-structure)
+- [Plugin Manifest](#plugin-manifest)
+- [Marketplace Manifest](#marketplace-manifest)
+- [Agent Format](#agent-format)
+- [Command Format](#command-format)
+- [Skill Format](#skill-format)
+- [Hooks Format](#hooks-format)
+- [MCP Server Format](#mcp-server-format)
+- [Naming Conventions](#naming-conventions)
+- [Variables Reference](#variables-reference)
+
+---
 
 ## Directory Structure
 
@@ -20,9 +35,16 @@ plugin-name/
 └── .mcp.json                # MCP server definitions (optional)
 ```
 
+**Notes:**
+- Only `.claude-plugin/plugin.json` is required
+- All other directories are optional based on plugin needs
+- Scripts must be executable (`chmod +x`)
+
+---
+
 ## Plugin Manifest
 
-`.claude-plugin/plugin.json`:
+**Location:** `.claude-plugin/plugin.json`
 
 ```json
 {
@@ -39,169 +61,284 @@ plugin-name/
 }
 ```
 
-## Agent Format
+| Field | Required | Description |
+|-------|----------|-------------|
+| `name` | Yes | Must match directory name. Lowercase, hyphens allowed |
+| `version` | Yes | Semantic version (e.g., `1.0.0`) |
+| `description` | Yes | One-line description of what the plugin does |
+| `author` | No | Author information |
+| `repository` | No | URL to source repository |
+| `license` | No | License identifier (e.g., `MIT`) |
+| `keywords` | No | Search keywords for discovery |
 
-Agents (subagents) are markdown files with YAML frontmatter. They define specialized AI assistants
-that handle specific types of tasks. Each agent runs in its own context window with a custom system
-message, specific tool access, and independent permissions.
+---
 
-Based on the official [sub-agents documentation](https://code.claude.com/docs/sub-agents).
+## Marketplace Manifest
 
-### Supported Frontmatter Fields
+**Location:** `.claude-plugin/marketplace.json` (repository root)
+
+This file enables plugin discovery when adding the repository as a marketplace.
+
+```json
+{
+  "name": "marketplace-name",
+  "owner": {
+    "name": "Owner Name",
+    "url": "https://github.com/owner"
+  },
+  "metadata": {
+    "description": "Collection description",
+    "version": "1.0.0"
+  },
+  "plugins": [
+    {
+      "name": "plugin-name",
+      "description": "What this plugin does",
+      "source": "./plugins/plugin-name"
+    }
+  ]
+}
+```
 
 | Field | Required | Description |
 |-------|----------|-------------|
-| `name` | Yes | Unique identifier using lowercase letters and hyphens |
-| `description` | Yes | When Claude should delegate to this subagent |
-| `tools` | No | Tools the subagent can use (comma-separated). Inherits all if omitted |
-| `disallowedTools` | No | Tools to deny, removed from the inherited or specified list |
-| `model` | No | Model to use: `sonnet`, `opus`, `haiku`, or `inherit`. Default: `sonnet` |
-| `permissionMode` | No | Permission mode: `default`, `acceptEdits`, `dontAsk`, `bypassPermissions`, `plan` |
-| `skills` | No | Skills to preload into the subagent's context at startup |
-| `hooks` | No | Lifecycle hooks scoped to this subagent |
+| `name` | Yes | Marketplace identifier |
+| `owner` | No | Owner information |
+| `metadata.description` | No | Marketplace description |
+| `metadata.version` | No | Marketplace version |
+| `plugins` | Yes | Array of available plugins |
+| `plugins[].name` | Yes | Plugin name (must match plugin's manifest) |
+| `plugins[].description` | Yes | Brief description |
+| `plugins[].source` | Yes | Relative path to plugin directory |
 
-### Example
-
-```markdown
----
-name: agent-name
-description: Brief description of what this agent does and when Claude should delegate to it
-tools: Read, Write, Edit, Glob, Grep, Bash
-model: sonnet
 ---
 
-You are the **Agent Name** for the current project. Your primary
-responsibility is to [describe main purpose].
+## Agent Format
 
-## Core Responsibilities
+Agents (subagents) are specialized AI assistants that handle specific types of tasks.
+Each agent runs in its own context with a custom system message.
 
-### 1. [Area]
-- Responsibility 1
-- Responsibility 2
-
-## Working Context
-
-### Key Documents You Work With
-- **Input**: [what this agent receives]
-- **Output**: [what this agent produces]
-```
+Based on the official [sub-agents documentation](https://docs.anthropic.com/en/docs/claude-code/sub-agents).
 
 **Location:** `agents/<name>.md`
 
-## Command Format
-
-Commands are markdown files that define slash commands (e.g., `/quality-check`).
-Commands follow the same format as [skills](https://code.claude.com/docs/skills) since
-custom slash commands have been merged into the skills system.
-
-### Supported Frontmatter Fields
+### Frontmatter Fields
 
 | Field | Required | Description |
 |-------|----------|-------------|
-| `name` | No | Command name (without `/`). Defaults to directory or file name |
-| `description` | Recommended | What the command does. Claude uses this to decide when to apply it |
-| `disable-model-invocation` | No | Set to `true` to prevent Claude from auto-loading. Default: `false` |
-| `user-invocable` | No | Set to `false` to hide from `/` menu. Default: `true` |
-| `allowed-tools` | No | Tools Claude can use without permission when this command is active |
-| `model` | No | Model to use when this command is active |
-| `context` | No | Set to `fork` to run in a subagent context |
-| `agent` | No | Subagent type to use when `context: fork` is set |
+| `name` | Yes | Unique identifier (lowercase, hyphens) |
+| `description` | Yes | When Claude should delegate to this agent |
+| `tools` | No | Comma-separated tools. Inherits all if omitted |
+| `disallowedTools` | No | Tools to deny from inherited set |
+| `model` | No | `sonnet` (default), `opus`, `haiku`, or `inherit` |
+| `permissionMode` | No | `default`, `acceptEdits`, `dontAsk`, `bypassPermissions`, `plan` |
+| `skills` | No | Skills to preload at startup |
+| `hooks` | No | Lifecycle hooks scoped to this agent |
 
 ### Example
 
 ```markdown
 ---
-name: command-name
-description: Brief description of what this command does
+name: tech-lead
+description: Delegates architectural decisions, code reviews, and technical planning
+tools: Read, Write, Edit, Glob, Grep, Bash, Task
+model: sonnet
 ---
 
-# /command-name
+You are the **Tech Lead** for the current project. Your primary
+responsibility is to make architectural decisions and ensure code quality.
 
-## Purpose
-What this command does.
+## Core Responsibilities
 
-## Process
-1. Step 1
-2. Step 2
+### 1. Architecture
+- Design system architecture
+- Define patterns and conventions
+- Review technical decisions
 
-## Options
-- `--option`: Description
+### 2. Code Quality
+- Review pull requests
+- Enforce coding standards
+- Identify technical debt
 
-## Output Format
-Expected output structure.
+## Working Context
+
+### Key Documents
+- **Input**: Requirements, code changes, technical questions
+- **Output**: Architectural decisions, code reviews, technical guidance
 ```
+
+---
+
+## Command Format
+
+Commands are slash commands (e.g., `/my-command`) defined as markdown files.
 
 **Location:** `commands/<name>.md`
 
-## Skill Format
-
-Skills extend what Claude can do. They use `SKILL.md` (uppercase) inside a named subdirectory
-and define reusable knowledge patterns.
-
-Based on the official [skills documentation](https://code.claude.com/docs/skills).
-
-### Supported Frontmatter Fields
-
-All fields are optional. Only `description` is recommended so Claude knows when to use the skill.
+### Frontmatter Fields
 
 | Field | Required | Description |
 |-------|----------|-------------|
-| `name` | No | Display name. Defaults to directory name. Lowercase, numbers, hyphens (max 64 chars) |
-| `description` | Recommended | What the skill does and when to use it. Claude uses this to decide when to apply it |
-| `argument-hint` | No | Hint shown during autocompletion (e.g., `[issue-number]`) |
-| `disable-model-invocation` | No | Set to `true` to prevent Claude from auto-loading. Default: `false` |
-| `user-invocable` | No | Set to `false` to hide from `/` menu. Default: `true` |
-| `allowed-tools` | No | Tools Claude can use without permission when this skill is active |
-| `model` | No | Model to use when this skill is active |
-| `context` | No | Set to `fork` to run in a subagent context |
-| `agent` | No | Subagent type to use when `context: fork` is set |
+| `name` | No | Command name (without `/`). Defaults to filename |
+| `description` | Recommended | What the command does. Used for auto-discovery |
+| `disable-model-invocation` | No | `true` to prevent auto-loading. Default: `false` |
+| `user-invocable` | No | `false` to hide from `/` menu. Default: `true` |
+| `allowed-tools` | No | Tools allowed without permission when active |
+| `model` | No | Model to use when command is active |
+| `context` | No | `fork` to run in subagent context |
+| `agent` | No | Subagent type when `context: fork` |
+
+### Example
+
+```markdown
+---
+name: quality-check
+description: Run comprehensive quality checks on the codebase
+allowed-tools: Bash, Read, Glob, Grep
+---
+
+# /quality-check
+
+## Purpose
+
+Run linting, type checking, and tests to verify code quality.
+
+## Process
+
+1. Run linter (`pnpm lint`)
+2. Run type checker (`pnpm typecheck`)
+3. Run tests (`pnpm test`)
+4. Report any failures with file locations
+
+## Options
+
+- `--fix`: Auto-fix linting issues
+- `--coverage`: Include test coverage report
+
+## Output Format
+
+```
+Quality Check Results
+=====================
+Lint: PASS/FAIL (X issues)
+Types: PASS/FAIL (X errors)
+Tests: PASS/FAIL (X/Y passed)
+```
+```
+
+---
+
+## Skill Format
+
+Skills extend what Claude can do with reusable knowledge patterns.
+
+Based on the official [skills documentation](https://docs.anthropic.com/en/docs/claude-code/skills).
+
+**Location:** `skills/<name>/SKILL.md` (note: uppercase `SKILL.md`)
+
+### Frontmatter Fields
+
+| Field | Required | Description |
+|-------|----------|-------------|
+| `name` | No | Display name. Defaults to directory name |
+| `description` | Recommended | What the skill does. Used for auto-discovery |
+| `argument-hint` | No | Hint for autocompletion (e.g., `[issue-number]`) |
+| `disable-model-invocation` | No | `true` to prevent auto-loading |
+| `user-invocable` | No | `false` to hide from `/` menu |
+| `allowed-tools` | No | Tools allowed without permission when active |
+| `model` | No | Model to use when skill is active |
+| `context` | No | `fork` to run in subagent context |
+| `agent` | No | Subagent type when `context: fork` |
 | `hooks` | No | Hooks scoped to this skill's lifecycle |
 
 ### Example
 
 ```markdown
 ---
-name: skill-name
-description: What patterns/knowledge this skill provides. Use when [context for automatic loading].
+name: react-patterns
+description: Modern React patterns and best practices. Use when working with React components.
 ---
 
-# Skill Name
+# React Patterns
 
 ## Purpose
-What patterns/knowledge this skill provides.
+
+Provide patterns and best practices for React development.
 
 ## Patterns
 
-### Pattern 1: [Name]
-Description and code examples.
+### 1. Component Composition
 
-### Pattern 2: [Name]
-Description and code examples.
+Use composition over inheritance:
 
-## Best Practices
-- Practice 1
-- Practice 2
+```tsx
+interface CardProps {
+  children: React.ReactNode;
+  header?: React.ReactNode;
+}
+
+export function Card({ children, header }: CardProps) {
+  return (
+    <div className="card">
+      {header && <div className="card-header">{header}</div>}
+      <div className="card-body">{children}</div>
+    </div>
+  );
+}
 ```
 
-**Location:** `skills/<name>/SKILL.md`
+### 2. Custom Hooks
 
-Skills can include supporting files in their directory:
+Extract reusable logic into hooks:
+
+```tsx
+function useLocalStorage<T>(key: string, initialValue: T) {
+  const [value, setValue] = useState<T>(() => {
+    const stored = localStorage.getItem(key);
+    return stored ? JSON.parse(stored) : initialValue;
+  });
+
+  useEffect(() => {
+    localStorage.setItem(key, JSON.stringify(value));
+  }, [key, value]);
+
+  return [value, setValue] as const;
+}
+```
+
+## Best Practices
+
+- Prefer functional components with hooks
+- Keep components small and focused
+- Use TypeScript for type safety
+- Memoize expensive computations
+```
+
+### Supporting Files
+
+Skills can include additional files in their directory:
 
 ```
 my-skill/
 ├── SKILL.md           # Main instructions (required)
 ├── template.md        # Template for Claude to fill in
 ├── examples/
-│   └── sample.md      # Example output showing expected format
+│   └── sample.md      # Example output
 └── scripts/
     └── validate.sh    # Script Claude can execute
 ```
 
+---
+
 ## Hooks Format
 
-Based on the official [hooks documentation](https://code.claude.com/docs/en/hooks).
+Hooks execute shell commands or prompts in response to Claude Code events.
 
-`hooks/hooks.json`:
+Based on the official [hooks documentation](https://docs.anthropic.com/en/docs/claude-code/hooks).
+
+**Location:** `hooks/hooks.json`
+
+### Structure
 
 ```json
 {
@@ -223,30 +360,82 @@ Based on the official [hooks documentation](https://code.claude.com/docs/en/hook
 }
 ```
 
-**Structure:**
-- `hooks` is an object keyed by event name
-- Each event contains an array of matcher groups
-- Each matcher group has an optional `matcher` (for `PreToolUse`, `PostToolUse`, `PermissionRequest`) and a `hooks` array
-- Each hook has `type` (`"command"` or `"prompt"`), `command`/`prompt`, and optional `timeout` (in seconds)
-- For events without matchers (`Notification`, `Stop`, `SessionStart`, etc.), omit the `matcher` field
+### Fields
 
-**Available events:** `SessionStart`, `UserPromptSubmit`, `PreToolUse`, `PermissionRequest`,
-`PostToolUse`, `PostToolUseFailure`, `SubagentStart`, `SubagentStop`, `Stop`, `PreCompact`,
-`Notification`, `Setup`, `SessionEnd`
+| Field | Required | Description |
+|-------|----------|-------------|
+| `description` | Recommended | What these hooks do |
+| `hooks` | Yes | Object keyed by event name |
+| `hooks[event]` | Yes | Array of matcher groups |
+| `matcher` | No | Tool pattern (for `PreToolUse`, `PostToolUse`, `PermissionRequest`) |
+| `hooks[].type` | Yes | `"command"` or `"prompt"` |
+| `hooks[].command` | Yes* | Shell command to execute (if type is command) |
+| `hooks[].prompt` | Yes* | Prompt to inject (if type is prompt) |
+| `hooks[].timeout` | No | Timeout in seconds |
 
-**Variables:**
-- `${CLAUDE_PLUGIN_ROOT}` — Absolute path to the plugin directory
-- `${CLAUDE_PROJECT_DIR}` — Absolute path to the project root directory
+### Available Events
 
-## MCP Server Format
+| Event | Matcher | Description |
+|-------|---------|-------------|
+| `SessionStart` | No | Session begins |
+| `UserPromptSubmit` | No | User submits a prompt |
+| `PreToolUse` | Yes | Before a tool executes |
+| `PostToolUse` | Yes | After a tool executes |
+| `PostToolUseFailure` | Yes | After a tool fails |
+| `PermissionRequest` | Yes | Permission requested |
+| `SubagentStart` | No | Subagent starts |
+| `SubagentStop` | No | Subagent completes |
+| `Stop` | No | Main session ends |
+| `PreCompact` | No | Before context compaction |
+| `Notification` | No | Notification triggered |
+| `SessionEnd` | No | Session ends completely |
+| `Setup` | No | Plugin setup |
 
-`.mcp.json`:
+### Example
 
 ```json
 {
-  "$schema": "./mcp-schema.json",
+  "description": "Session lifecycle hooks for task management",
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "${CLAUDE_PLUGIN_ROOT}/scripts/session-resume.sh",
+            "timeout": 5
+          }
+        ]
+      }
+    ],
+    "PreCompact": [
+      {
+        "hooks": [
+          {
+            "type": "prompt",
+            "prompt": "Before compacting, create a diary entry with /diary"
+          }
+        ]
+      }
+    ]
+  }
+}
+```
+
+---
+
+## MCP Server Format
+
+MCP (Model Context Protocol) server definitions for external tool integrations.
+
+**Location:** `.mcp.json`
+
+### Structure
+
+```json
+{
   "version": "1.0.0",
-  "description": "Description of the MCP server configuration",
+  "description": "Description of these MCP servers",
   "mcpServers": {
     "server-name": {
       "command": "npx",
@@ -259,16 +448,85 @@ Based on the official [hooks documentation](https://code.claude.com/docs/en/hook
 }
 ```
 
-Environment variables should use the `${VAR:-}` syntax (with empty default) or
-`${VAR:-default_value}` to provide safe fallback values.
+### Server Types
+
+**Command-based (local process):**
+
+```json
+{
+  "server-name": {
+    "command": "npx",
+    "args": ["-y", "@scope/mcp-server"],
+    "env": {
+      "API_KEY": "${API_KEY:-}"
+    }
+  }
+}
+```
+
+**HTTP-based (remote endpoint):**
+
+```json
+{
+  "server-name": {
+    "type": "http",
+    "url": "https://mcp.example.com/mcp"
+  }
+}
+```
+
+### Environment Variables
+
+Use safe defaults to avoid errors when variables are missing:
+
+```json
+{
+  "env": {
+    "REQUIRED_KEY": "${API_KEY}",
+    "OPTIONAL_KEY": "${API_KEY:-}",
+    "WITH_DEFAULT": "${API_KEY:-default_value}"
+  }
+}
+```
+
+---
 
 ## Naming Conventions
 
 | Component | Convention | Example |
-|-----------|-----------|---------|
+|-----------|------------|---------|
+| Plugin directory | kebab-case | `my-plugin/` |
 | Agent file | kebab-case.md | `tech-lead.md` |
 | Command file | kebab-case.md | `quality-check.md` |
-| Skill directory | kebab-case/ | `tdd-methodology/` |
+| Skill directory | kebab-case | `react-patterns/` |
 | Skill file | SKILL.md (uppercase) | `SKILL.md` |
 | Hook script | kebab-case.sh | `on-notification.sh` |
-| Plugin directory | kebab-case/ | `mcp-servers/` |
+| Template file | kebab-case.ext | `brand-config.json` |
+| Hook event | PascalCase | `SessionStart` |
+
+---
+
+## Variables Reference
+
+Available in hook commands and scripts:
+
+| Variable | Description |
+|----------|-------------|
+| `${CLAUDE_PLUGIN_ROOT}` | Absolute path to the plugin directory |
+| `${CLAUDE_PROJECT_DIR}` | Absolute path to the project root |
+
+**Example usage in hooks.json:**
+
+```json
+{
+  "command": "${CLAUDE_PLUGIN_ROOT}/scripts/my-script.sh"
+}
+```
+
+**Example usage in scripts:**
+
+```bash
+#!/bin/bash
+PLUGIN_DIR="${CLAUDE_PLUGIN_ROOT:-$(dirname "$0")/..}"
+PROJECT_DIR="${CLAUDE_PROJECT_DIR:-$(pwd)}"
+```
