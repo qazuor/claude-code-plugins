@@ -145,6 +145,31 @@ else
 fi
 
 # ============================================================================
+# setup-project Command
+# ============================================================================
+describe "setup-project Command"
+
+it "setup-project.md exists"
+assert_file_exists "$PLUGIN_DIR/commands/setup-project.md" "$CURRENT_TEST"
+
+it "setup-project.md has frontmatter"
+first_line=$(head -n 1 "$PLUGIN_DIR/commands/setup-project.md")
+assert_equals "---" "$first_line" "$CURRENT_TEST"
+
+it "setup-project.md has description"
+closing_line=$(sed -n '2,${/^---$/=;}' "$PLUGIN_DIR/commands/setup-project.md" | head -n 1)
+if [[ -n "$closing_line" ]]; then
+    frontmatter=$(sed -n "2,$((closing_line - 1))p" "$PLUGIN_DIR/commands/setup-project.md")
+    has_desc="false"
+    if echo "$frontmatter" | grep -q "^description:"; then
+        has_desc="true"
+    fi
+    assert_equals "true" "$has_desc" "$CURRENT_TEST"
+else
+    assert_equals "true" "false" "Frontmatter not properly closed"
+fi
+
+# ============================================================================
 # Summary
 # ============================================================================
 print_summary
