@@ -217,13 +217,12 @@ Run linting, type checking, and tests to verify code quality.
 
 ## Output Format
 
-```
+```text
 Quality Check Results
-=====================
+---------------------
 Lint: PASS/FAIL (X issues)
 Types: PASS/FAIL (X errors)
 Tests: PASS/FAIL (X/Y passed)
-```
 ```
 
 ---

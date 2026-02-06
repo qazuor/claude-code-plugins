@@ -2,7 +2,7 @@
 
 [![CI](https://github.com/qazuor/claude-code-plugins/actions/workflows/ci.yml/badge.svg)](https://github.com/qazuor/claude-code-plugins/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
-[![Plugins](https://img.shields.io/badge/Plugins-7-green.svg)](#plugins)
+[![Plugins](https://img.shields.io/badge/Plugins-7-green.svg)](#plugins-overview)
 [![Version](https://img.shields.io/badge/Version-2.0.0-blue.svg)](CHANGELOG.md)
 
 A curated collection of plugins for [Claude Code](https://docs.anthropic.com/en/docs/claude-code) (Anthropic's official CLI tool). These plugins enhance your Claude Code experience with notifications, task management, permission synchronization, and more.
