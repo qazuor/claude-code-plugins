@@ -188,7 +188,7 @@ for agent in "${EXPECTED_AGENTS[@]}"; do
 done
 
 # Commands
-EXPECTED_COMMANDS=("new-task" "next-task" "replan" "spec" "task-status" "tasks")
+EXPECTED_COMMANDS=("auto-loop" "auto-loop-cancel" "new-task" "next-task" "replan" "spec" "task-status" "tasks")
 for cmd in "${EXPECTED_COMMANDS[@]}"; do
     it "Command exists: $cmd"
     assert_file_exists "$PLUGIN_DIR/commands/$cmd.md" "$CURRENT_TEST"
@@ -206,6 +206,83 @@ assert_file_exists "$PLUGIN_DIR/templates/metadata-schema.json" "$CURRENT_TEST"
 
 it "specs-index-schema.json exists"
 assert_file_exists "$PLUGIN_DIR/templates/specs-index-schema.json" "$CURRENT_TEST"
+
+# ============================================================================
+# Auto-Loop Components
+# ============================================================================
+describe "Auto-Loop Components"
+
+it "auto-loop.md has frontmatter"
+first_line=$(head -n 1 "$PLUGIN_DIR/commands/auto-loop.md")
+assert_equals "---" "$first_line" "$CURRENT_TEST"
+
+it "auto-loop-cancel.md has frontmatter"
+first_line=$(head -n 1 "$PLUGIN_DIR/commands/auto-loop-cancel.md")
+assert_equals "---" "$first_line" "$CURRENT_TEST"
+
+it "auto-loop-stop.sh exists"
+assert_file_exists "$PLUGIN_DIR/scripts/auto-loop-stop.sh" "$CURRENT_TEST"
+
+it "auto-loop-stop.sh is executable"
+assert_executable "$PLUGIN_DIR/scripts/auto-loop-stop.sh" "$CURRENT_TEST"
+
+it "auto-loop-stop.sh exits silently without loop file"
+(
+    export CLAUDE_PROJECT_DIR="$TEST_TMPDIR/no-loop-project"
+    mkdir -p "$CLAUDE_PROJECT_DIR/.claude"
+    output=$("$PLUGIN_DIR/scripts/auto-loop-stop.sh" 2>&1)
+    if [[ -z "$output" ]]; then
+        exit 0
+    fi
+    exit 1
+)
+assert_exit_code "0" "$?" "$CURRENT_TEST"
+
+it "auto-loop-state-schema.json exists"
+assert_file_exists "$PLUGIN_DIR/templates/auto-loop-state-schema.json" "$CURRENT_TEST"
+
+it "auto-loop-state-schema.json is valid JSON"
+assert_json_valid "$PLUGIN_DIR/templates/auto-loop-state-schema.json" "$CURRENT_TEST"
+
+# ============================================================================
+# Guardrails
+# ============================================================================
+describe "Guardrails Template"
+
+it "guardrails-template.md exists"
+assert_file_exists "$PLUGIN_DIR/templates/guardrails-template.md" "$CURRENT_TEST"
+
+it "guardrails-template.md has frontmatter"
+first_line=$(head -n 1 "$PLUGIN_DIR/templates/guardrails-template.md")
+assert_equals "---" "$first_line" "$CURRENT_TEST"
+
+it "guardrails-template.md has 4+ seed signs"
+sign_count=$(grep -c "^\- \*\*GR-" "$PLUGIN_DIR/templates/guardrails-template.md")
+assert_gt "$sign_count" 3 "Has $sign_count seed signs (>= 4)"
+
+# ============================================================================
+# Hooks Configuration
+# ============================================================================
+describe "Hooks Configuration"
+
+it "hooks.json includes Stop event"
+(
+    if jq -e '.hooks.Stop' "$PLUGIN_DIR/hooks/hooks.json" >/dev/null 2>&1; then
+        exit 0
+    fi
+    exit 1
+)
+assert_exit_code "0" "$?" "$CURRENT_TEST"
+
+it "hooks.json Stop references auto-loop-stop.sh"
+(
+    cmd=$(jq -r '.hooks.Stop[0].hooks[0].command' "$PLUGIN_DIR/hooks/hooks.json" 2>/dev/null)
+    if echo "$cmd" | grep -q "auto-loop-stop.sh"; then
+        exit 0
+    fi
+    exit 1
+)
+assert_exit_code "0" "$?" "$CURRENT_TEST"
 
 # ============================================================================
 # Cleanup
