@@ -1,0 +1,48 @@
+{
+  "name": "qazuor-claude-code-plugins",
+  "owner": {
+    "name": "qazuor",
+    "url": "https://github.com/qazuor"
+  },
+  "metadata": {
+    "description": "Collection of Claude Code plugins for productivity, notifications, and project management",
+    "version": "2.0.0"
+  },
+  "plugins": [
+    {
+      "name": "notifications",
+      "description": "Desktop notifications with TTS audio and beeps on session events",
+      "source": "./plugins/notifications"
+    },
+    {
+      "name": "task-master",
+      "description": "Specification-driven task management with agents, skills, and progress tracking",
+      "source": "./plugins/task-master"
+    },
+    {
+      "name": "mcp-servers",
+      "description": "Pre-configured MCP server definitions (30 servers for databases, APIs, browsers, etc.)",
+      "source": "./plugins/mcp-servers"
+    },
+    {
+      "name": "permission-sync",
+      "description": "Synchronize Claude Code permissions across all your projects",
+      "source": "./plugins/permission-sync"
+    },
+    {
+      "name": "knowledge-sync",
+      "description": "Sync agents, skills, commands, and docs from external knowledge repository",
+      "source": "./plugins/knowledge-sync"
+    },
+    {
+      "name": "session-tools",
+      "description": "Session diary and reflection tools with pre-compact hooks",
+      "source": "./plugins/session-tools"
+    },
+    {
+      "name": "claude-initializer",
+      "description": "Initialize projects with CLAUDE.md, settings templates, and brand configuration",
+      "source": "./plugins/claude-initializer"
+    }
+  ]
+}
