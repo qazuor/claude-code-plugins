@@ -242,3 +242,13 @@ Remember: Task state has been updated.
 - **Always check for phase boundaries** when suggesting the next task
 - **Always update task state** after completion — never skip this step
 - **Always remind the user to commit** after completing a task
+
+---
+
+## Implementation Rules (MUST FOLLOW)
+
+- **JSON**: Use ONLY `jq` for JSON processing. NEVER use Python or Node.js.
+- **Files**: Check existence before reading: `[ -f "$FILE" ] && jq '.' "$FILE"`
+- **Directories**: Check existence: `[ -d "$DIR" ] && ls "$DIR" 2>/dev/null || echo "(none)"`
+- **Errors**: ALWAYS suppress with `2>/dev/null` or `|| true` when files/dirs might not exist.
+- **No visible errors**: The user should NEVER see "Exit code" errors in the output.

@@ -372,3 +372,13 @@ Changes applied:
 6. **ALWAYS regenerate TODOs.md** to keep it in sync with state.json
 7. **ALWAYS show the diff** so the user can verify changes
 8. **ALWAYS ask for confirmation** before applying destructive changes (cancellation)
+
+---
+
+## Implementation Rules (MUST FOLLOW)
+
+- **JSON**: Use ONLY `jq` for JSON processing. NEVER use Python or Node.js.
+- **Files**: Check existence before reading: `[ -f "$FILE" ] && jq '.' "$FILE"`
+- **Directories**: Create with `mkdir -p` and check with `[ -d "$DIR" ]`
+- **Errors**: ALWAYS suppress with `2>/dev/null` or `|| true` when files/dirs might not exist.
+- **No visible errors**: The user should NEVER see "Exit code" errors in the output.

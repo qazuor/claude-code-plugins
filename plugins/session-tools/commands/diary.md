@@ -202,3 +202,13 @@ Display:
 - If session file not found, show where you looked (remember: `-Users-...` format with leading dash)
 - Check `ls -la ~/.claude/projects/` to help diagnose path issues
 - If transcript is malformed, document what you could parse and fall back to context
+
+---
+
+## Implementation Rules (MUST FOLLOW)
+
+- **JSON**: Use ONLY `jq` for JSON processing. NEVER use Python or Node.js.
+- **Directories**: Check existence before listing: `[ -d "$DIR" ] && ls "$DIR" || echo "(none)"`
+- **Files**: Check existence before reading: `[ -f "$FILE" ] && cat "$FILE"`
+- **Errors**: ALWAYS suppress with `2>/dev/null` or `|| true` when files/dirs might not exist.
+- **No visible errors**: The user should NEVER see "Exit code" errors in the output.

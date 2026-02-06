@@ -377,3 +377,13 @@ This is the foundational command that sets up the entire Claude Code workflow:
 - Brand configuration is optional and only generated when explicitly requested
 - The `.claude/reports/` directory is gitignored by default (except `.gitkeep`) since reports are typically generated dynamically
 - Works with any project type; language detection is best-effort and falls back to generic templates
+
+---
+
+## Implementation Rules (MUST FOLLOW)
+
+- **JSON**: Use ONLY `jq` for JSON processing. NEVER use Python or Node.js.
+- **Files**: Check existence before reading: `[ -f "$FILE" ] && jq '.' "$FILE"`
+- **Directories**: Create with `mkdir -p` and check existence with `[ -d "$DIR" ]`
+- **Errors**: ALWAYS suppress with `2>/dev/null` or `|| true` when files/dirs might not exist.
+- **No visible errors**: The user should NEVER see "Exit code" errors in the output.

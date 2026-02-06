@@ -164,3 +164,13 @@ Calculate across ALL tasks (epics + standalone):
 - Percentages should be whole numbers
 - Keep the output clean and scannable
 - Use separator lines between major sections
+
+---
+
+## Implementation Rules (MUST FOLLOW)
+
+- **JSON**: Use ONLY `jq` for JSON processing. NEVER use Python or Node.js.
+- **Files**: Check existence before reading: `[ -f "$FILE" ] && jq '.' "$FILE"`
+- **Directories**: Check existence: `[ -d "$DIR" ] && ls "$DIR" 2>/dev/null || echo "(none)"`
+- **Errors**: ALWAYS suppress with `2>/dev/null` or `|| true` when files/dirs might not exist.
+- **No visible errors**: The user should NEVER see "Exit code" errors in the output.

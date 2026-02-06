@@ -29,6 +29,14 @@ Display the current state of permissions: base vs project.
 
 ---
 
+## Implementation Rules
+
+- **JSON**: Use ONLY `jq` for JSON processing. NEVER use Python or Node.js.
+- **Files**: Always check existence before reading: `[ -f "$FILE" ] && ...`
+- **Errors**: Suppress with `2>/dev/null` or `|| true` when files might not exist.
+
+---
+
 $ARGUMENTS
 
 Show permission status:

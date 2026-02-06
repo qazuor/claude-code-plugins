@@ -238,3 +238,13 @@ OVERALL STATISTICS
 - Timestamps: show full ISO 8601, also show relative time where useful (e.g., "3 days ago")
 - Section headers: ALL CAPS with underline separator
 - Keep output scannable with clear visual hierarchy
+
+---
+
+## Implementation Rules (MUST FOLLOW)
+
+- **JSON**: Use ONLY `jq` for JSON processing. NEVER use Python or Node.js.
+- **Files**: Check existence before reading: `[ -f "$FILE" ] && jq '.' "$FILE"`
+- **Directories**: Check existence: `[ -d "$DIR" ] && ls "$DIR" 2>/dev/null || echo "(none)"`
+- **Errors**: ALWAYS suppress with `2>/dev/null` or `|| true` when files/dirs might not exist.
+- **No visible errors**: The user should NEVER see "Exit code" errors in the output.

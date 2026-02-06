@@ -363,6 +363,18 @@ Before proposing a CLAUDE.md update, verify:
 - User wants to validate previous patterns
 - User wants to extract different insights from same sessions
 
+---
+
+## Implementation Rules (MUST FOLLOW)
+
+- **JSON**: Use ONLY `jq` for JSON processing. NEVER use Python or Node.js.
+- **Directories**: Check existence before listing: `[ -d "$DIR" ] && ls "$DIR" || echo "(none)"`
+- **Files**: Check existence before reading: `[ -f "$FILE" ] && cat "$FILE"`
+- **Errors**: ALWAYS suppress with `2>/dev/null` or `|| true` when files/dirs might not exist.
+- **No visible errors**: The user should NEVER see "Exit code" errors in the output.
+
+---
+
 ## Example Usage
 
 ```
