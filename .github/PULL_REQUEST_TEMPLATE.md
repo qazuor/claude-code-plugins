@@ -13,7 +13,7 @@
 - [ ] New plugin
 - [ ] Documentation
 - [ ] CI/CD
-- [ ] Installer
+- [ ] Tests
 
 ## Checklist
 
@@ -24,4 +24,4 @@
 - [ ] JSON files are valid
 - [ ] CATALOG.md updated (if adding/removing components)
 - [ ] README.md updated (if adding/removing components)
-- [ ] Tested locally with the installer
+- [ ] Tested locally
