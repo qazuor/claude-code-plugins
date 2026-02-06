@@ -1,6 +1,6 @@
 # Plugin Catalog
 
-Complete inventory of all components in the claude-code-plugins repository (v2.0.0).
+Complete inventory of all components in the claude-code-plugins repository (v2.1.0).
 
 > **Note:** Knowledge components (20 agents, 43 skills, 17 commands, 11 docs, 4 templates = 95 total) live in the separate [claude-code-knowledge](https://github.com/qazuor/claude-code-knowledge) repository and are managed by the **knowledge-sync** plugin.
 
@@ -25,11 +25,11 @@ Complete inventory of all components in the claude-code-plugins repository (v2.0
 | [knowledge-sync](#knowledge-sync) | 1 | 1 | 3 | 0 | 0 | 2 | 0 | 7 |
 | [permission-sync](#permission-sync) | 2 | 1 | 2 | 0 | 0 | 1 | 0 | 6 |
 | [session-tools](#session-tools) | 2 | 1 | 2 | 0 | 0 | 0 | 0 | 5 |
-| [claude-initializer](#claude-initializer) | 1 | 0 | 0 | 0 | 0 | 4 | 0 | 5 |
+| [claude-initializer](#claude-initializer) | 2 | 0 | 0 | 0 | 0 | 4 | 0 | 6 |
 | [notifications](#notifications) | 0 | 3 | 3 | 0 | 0 | 0 | 0 | 6 |
-| [task-master](#task-master) | 6 | 1 | 1 | 7 | 3 | 7 | 0 | 25 |
+| [task-master](#task-master) | 8 | 2 | 2 | 7 | 3 | 9 | 0 | 31 |
 | [mcp-servers](#mcp-servers) | 0 | 0 | 1 | 0 | 0 | 0 | 30 | 31 |
-| **Total** | **12** | **7** | **12** | **7** | **3** | **14** | **30** | **85** |
+| **Total** | **15** | **8** | **13** | **7** | **3** | **16** | **30** | **92** |
 
 ---
 
@@ -148,15 +148,16 @@ Session lifecycle utilities: diary entries for session context preservation and 
 
 ## claude-initializer
 
-**Version:** 2.0.0
+**Version:** 2.1.0
 
-Project bootstrapping: generates CLAUDE.md files, settings templates, and brand configuration for new or existing projects.
+Project bootstrapping: generates CLAUDE.md files, settings templates, brand configuration, and full setup orchestration for new or existing projects.
 
-### Commands (1)
+### Commands (2)
 
 | Name | Description |
 |------|-------------|
 | `/init-project` | Interactive project initialization wizard |
+| `/setup-project` | Full setup orchestration: init + knowledge sync + permissions + guardrails |
 
 ### Templates (4)
 
@@ -203,9 +204,9 @@ Desktop notifications and audio feedback for session events: completion beeps, T
 
 ## task-master
 
-**Version:** 1.0.0
+**Version:** 2.0.0
 
-Full-featured task management pipeline: from specs to atomic tasks with dependency tracking, complexity scoring, and quality gates.
+Full-featured task management pipeline: from specs to atomic tasks with dependency tracking, complexity scoring, quality gates, autonomous loops, and guardrails.
 
 ### Agents (3)
 
@@ -215,7 +216,7 @@ Full-featured task management pipeline: from specs to atomic tasks with dependen
 | `tech-analyzer` | Technical analysis: architecture design, data models, API design, risk assessment |
 | `task-planner` | Decomposes specs into atomic tasks with dependencies, phases, and complexity scores |
 
-### Commands (6)
+### Commands (8)
 
 | Name | Description |
 |------|-------------|
@@ -225,6 +226,8 @@ Full-featured task management pipeline: from specs to atomic tasks with dependen
 | `/new-task` | Create standalone task (no spec required) |
 | `/task-status` | Detailed progress report with dependency graph |
 | `/replan` | Modify task plans: add, remove, reorder, split tasks |
+| `/auto-loop` | Start autonomous task processing loop with configurable iterations |
+| `/auto-loop-cancel` | Cancel an active autonomous loop and show summary |
 
 ### Skills (7)
 
@@ -238,19 +241,21 @@ Full-featured task management pipeline: from specs to atomic tasks with dependen
 | `task-from-spec` | Orchestrates atomizer + scorer + grapher from spec |
 | `spec-generator` | Transforms Plan Mode output into formal spec documents |
 
-### Hooks (1)
+### Hooks (2)
 
 | Name | Event | Description |
 |------|-------|-------------|
 | session-resume | SessionStart | Detects active work and displays summary |
+| auto-loop-stop | Stop | Continues autonomous loop if active and iterations remain |
 
-### Scripts (1)
+### Scripts (2)
 
 | Name | Description |
 |------|-------------|
 | `session-resume.sh` | Reads task index, displays active epics and pending tasks |
+| `auto-loop-stop.sh` | Stop hook: checks loop state, outputs continuation instructions if work remains |
 
-### Templates (7)
+### Templates (9)
 
 | Name | Description |
 |------|-------------|
@@ -261,6 +266,8 @@ Full-featured task management pipeline: from specs to atomic tasks with dependen
 | `index-schema.json` | JSON Schema for global task index |
 | `specs-index-schema.json` | JSON Schema for specs index |
 | `config-example.json` | Example quality gate configuration |
+| `auto-loop-state-schema.json` | JSON Schema for auto-loop state file |
+| `guardrails-template.md` | Guardrails template with 4 seed signs for autonomous execution |
 
 ---
 
@@ -438,14 +445,14 @@ brand-config.json.template, code-review.yml, project-generic.md.template, securi
 
 | Type | Count |
 |------|-------|
-| Commands | 12 |
-| Hooks | 7 |
-| Scripts | 12 |
+| Commands | 15 |
+| Hooks | 8 |
+| Scripts | 13 |
 | Skills | 7 |
 | Agents | 3 |
-| Templates | 14 |
+| Templates | 16 |
 | MCP Servers | 30 |
-| **Total** | **85** |
+| **Total** | **92** |
 
 ### Knowledge Repository (External)
 
@@ -458,4 +465,4 @@ brand-config.json.template, code-review.yml, project-generic.md.template, securi
 | Templates | 4 |
 | **Total** | **95** |
 
-### Combined Total: 180 components
+### Combined Total: 187 components

@@ -5,6 +5,30 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.1.0] - 2026-02-06
+
+Autonomous loop, guardrails system, and project setup orchestration.
+
+### Added
+
+- **task-master@qazuor** (v2.0.0) .. Autonomous loop and guardrails
+  - 2 new commands (`/auto-loop`, `/auto-loop-cancel`) for autonomous task processing
+  - Stop hook (`auto-loop-stop.sh`) to continue loops across session boundaries
+  - Guardrails template with 4 seed signs for safe autonomous execution
+  - Auto-loop state schema for loop state tracking
+- **claude-initializer@qazuor** (v2.1.0) .. Setup orchestration
+  - 1 new command (`/setup-project`) for one-command project setup
+  - Orchestrates init-project, knowledge-sync, permission-sync, and guardrails
+
+### Changed
+
+- **task-master** .. Version bump to 2.0.0, added `autonomous-loop` and `guardrails` keywords
+- **claude-initializer** .. Version bump to 2.1.0, added `setup` and `orchestration` keywords
+
+### Fixed
+
+- **PR template** .. Updated checklist to remove installer reference, replaced with generic testing reference
+
 ## [2.0.1] - 2026-02-06
 
 Documentation and marketplace improvements.
@@ -126,6 +150,7 @@ Initial public release of the Claude Code Plugins Marketplace.
 - CATALOG.md with full component inventory (158 components)
 - LICENSE (MIT)
 
-[2.0.1]: https://github.com/qazuor/claude-code-plugins/compare/v2.0.0...HEAD
+[2.1.0]: https://github.com/qazuor/claude-code-plugins/compare/v2.0.1...HEAD
+[2.0.1]: https://github.com/qazuor/claude-code-plugins/compare/v2.0.0...v2.0.1
 [2.0.0]: https://github.com/qazuor/claude-code-plugins/releases/tag/v2.0.0
 [1.0.0]: https://github.com/qazuor/claude-code-plugins/releases/tag/v1.0.0

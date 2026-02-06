@@ -3,7 +3,7 @@
 [![CI](https://github.com/qazuor/claude-code-plugins/actions/workflows/ci.yml/badge.svg)](https://github.com/qazuor/claude-code-plugins/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Plugins](https://img.shields.io/badge/Plugins-7-green.svg)](#plugins-overview)
-[![Version](https://img.shields.io/badge/Version-2.0.0-blue.svg)](CHANGELOG.md)
+[![Version](https://img.shields.io/badge/Version-2.1.0-blue.svg)](CHANGELOG.md)
 
 A curated collection of plugins for [Claude Code](https://docs.anthropic.com/en/docs/claude-code) (Anthropic's official CLI tool). These plugins enhance your Claude Code experience with notifications, task management, permission synchronization, and more.
 
@@ -97,7 +97,7 @@ Some plugins register hooks that only activate on session start. Restart Claude 
 
 ### task-master
 
-**Purpose:** Specification-driven development with task decomposition and progress tracking.
+**Purpose:** Specification-driven development with task decomposition, progress tracking, autonomous loops, and guardrails.
 
 **What it does:**
 - Creates formal specifications from requirements
@@ -105,6 +105,8 @@ Some plugins register hooks that only activate on session start. Restart Claude 
 - Tracks progress with visual dashboards
 - Runs quality gates (lint, typecheck, tests) before completion
 - Detects active work on session start
+- Autonomous loop for processing tasks sequentially without manual intervention
+- Guardrails system with learned constraints for safe autonomous execution
 
 **What it doesn't do:**
 - Doesn't replace your project management tool
@@ -120,6 +122,24 @@ Some plugins register hooks that only activate on session start. Restart Claude 
 | `/new-task` | Create a standalone task (no spec needed) |
 | `/task-status` | Detailed progress report |
 | `/replan` | Modify tasks when requirements change |
+| `/auto-loop` | Start autonomous task processing loop |
+| `/auto-loop-cancel` | Cancel an active autonomous loop |
+
+**Autonomous Loop:**
+
+The `/auto-loop` command starts a controlled loop that processes tasks one after another:
+- Configurable max iterations (default 10)
+- Pauses at phase boundaries for review
+- Respects guardrails throughout execution
+- Stop hook continues loop across session boundaries
+- Quality gate checks before each task completion
+
+**Guardrails:**
+
+Learned constraints stored in `.claude/guardrails.md`:
+- Append-only signs that guide autonomous execution
+- 4 seed signs included by default (quality gates, state consistency, documentation, focused changes)
+- Add project-specific guardrails as you learn
 
 **Skills (internal):**
 
@@ -141,7 +161,11 @@ Some plugins register hooks that only activate on session start. Restart Claude 
 | `tech-analyzer` | Architecture design and risk assessment |
 | `task-planner` | Decomposes specs into implementable tasks |
 
-**Hook:** Shows active work summary on SessionStart
+**Hooks:**
+| Event | Action |
+|-------|--------|
+| `SessionStart` | Shows active work summary |
+| `Stop` | Continues autonomous loop if active |
 
 ---
 
@@ -291,23 +315,36 @@ Project B: On SessionStart, gets "Bash(pnpm test:*)" merged in
 
 ### claude-initializer
 
-**Purpose:** Initialize new projects with Claude Code configuration.
+**Purpose:** Initialize new projects with Claude Code configuration and full setup orchestration.
 
 **What it does:**
 - Generates CLAUDE.md with project-specific rules
 - Creates `.claude/` directory structure
 - Provides settings.local.json template with permission allowlists
 - Optionally configures brand settings (colors, typography, tone)
+- One-command full project setup via `/setup-project`
 
 **What it doesn't do:**
 - Doesn't overwrite existing CLAUDE.md (merges with sentinel comments)
 - Doesn't make architectural decisions
 
-**Command:**
+**Commands:**
 
-```bash
-/init-project
-```
+| Command | Description |
+|---------|-------------|
+| `/init-project` | Interactive project initialization wizard |
+| `/setup-project` | Full setup orchestration (init + knowledge + permissions + guardrails) |
+
+**Setup Project:**
+
+The `/setup-project` command orchestrates all initialization in one pass:
+1. Init project (if not already done)
+2. Knowledge sync (install detected components)
+3. Permissions sync (apply base permissions)
+4. Guardrails init (copy seed signs)
+5. Summary with next steps
+
+Idempotent: skips already-completed steps on subsequent runs.
 
 **Templates:**
 - `global.md.template` - Base CLAUDE.md template
@@ -343,6 +380,10 @@ package.json has "drizzle-orm" → suggests drizzle-patterns, db-drizzle-enginee
 ### New Project Setup
 
 ```bash
+# Option A: One-command setup (recommended)
+/setup-project
+
+# Option B: Step by step
 # 1. Initialize Claude Code structure
 /init-project
 

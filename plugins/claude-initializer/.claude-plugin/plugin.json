@@ -1,7 +1,7 @@
 {
   "name": "claude-initializer",
-  "version": "2.0.0",
-  "description": "Project initialization with CLAUDE.md generation, merge support, and settings templates",
+  "version": "2.1.0",
+  "description": "Project initialization with CLAUDE.md generation, merge support, settings templates, and full setup orchestration",
   "author": {
     "name": "Qazuor",
     "url": "https://github.com/qazuor"
@@ -14,6 +14,8 @@
     "CLAUDE.md",
     "settings",
     "brand",
-    "templates"
+    "templates",
+    "setup",
+    "orchestration"
   ]
 }
