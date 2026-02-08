@@ -1,6 +1,6 @@
 #!/bin/bash
 # =============================================================================
-# claude-mem-watchdog.sh - Claude-mem worker health watchdog (enhanced)
+# watchdog-enhanced.sh - Claude-mem worker health watchdog (enhanced)
 # =============================================================================
 #
 # Enhanced version of the basic watchdog with:
@@ -9,9 +9,7 @@
 # - Cross-platform stat compatibility (Linux + macOS)
 # - Periodic OK logging (every ~3 hours) to avoid log bloat
 #
-# Installation: This script is installed automatically by the plugin installer
-# when claude-mem is detected as an enabled plugin.
-#
+# Installation: Installed by claude-mem-patches apply script
 # Cron setup: */10 * * * * ~/.claude-mem/watchdog.sh
 # =============================================================================
 

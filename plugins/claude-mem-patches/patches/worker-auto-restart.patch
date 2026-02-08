@@ -1,0 +1,97 @@
+diff --git a/src/shared/worker-utils.ts b/src/shared/worker-utils.ts
+index b9f05ef..0922212 100644
+--- a/src/shared/worker-utils.ts
++++ b/src/shared/worker-utils.ts
+@@ -5,6 +5,17 @@ import { logger } from "../utils/logger.js";
+ import { HOOK_TIMEOUTS, getTimeout } from "./hook-constants.js";
+ import { SettingsDefaultsManager } from "./SettingsDefaultsManager.js";
+ import { getWorkerRestartInstructions } from "../utils/error-messages.js";
++import {
++  spawnDaemon,
++  removePidFile,
++  readPidFile,
++  getPlatformTimeout,
++} from "../services/infrastructure/ProcessManager.js";
++import {
++  httpShutdown,
++  waitForPortFree,
++  waitForHealth,
++} from "../services/infrastructure/HealthMonitor.js";
+ 
+ const MARKETPLACE_ROOT = path.join(homedir(), '.claude', 'plugins', 'marketplaces', 'thedotmack');
+ 
+@@ -112,7 +123,9 @@ async function checkWorkerVersion(): Promise<void> {
+ 
+ /**
+  * Ensure worker service is running
+- * Polls until worker is ready (assumes worker-service.cjs start was called by hooks.json)
++ * Polls until worker is ready (assumes worker-service.cjs start was called by hooks.json).
++ * If the worker does not become ready within 15 seconds, attempts an automatic restart
++ * before falling back to manual restart instructions.
+  */
+ export async function ensureWorkerRunning(): Promise<void> {
+   const maxRetries = 75;  // 15 seconds total
+@@ -134,8 +147,59 @@ export async function ensureWorkerRunning(): Promise<void> {
+     await new Promise(r => setTimeout(r, pollInterval));
+   }
+ 
+-  throw new Error(getWorkerRestartInstructions({
+-    port: getWorkerPort(),
+-    customPrefix: 'Worker did not become ready within 15 seconds.'
+-  }));
++  // Auto-restart: try to recover instead of requiring manual intervention
++  const port = getWorkerPort();
++  logger.info('SYSTEM', 'Worker not ready after 15 seconds, attempting auto-restart', { port });
++
++  // Step 1: Try graceful shutdown
++  await httpShutdown(port);
++  let freed = await waitForPortFree(port, getPlatformTimeout(15000));
++
++  // Step 2: If port still busy, force kill via PID file
++  if (!freed) {
++    logger.info('SYSTEM', 'Graceful shutdown did not free port, attempting force kill');
++    const pidInfo = readPidFile();
++    if (pidInfo) {
++      try {
++        process.kill(pidInfo.pid, 'SIGKILL');
++      } catch {
++        // Process already dead, continue
++      }
++    }
++    removePidFile();
++    await new Promise(r => setTimeout(r, 2000));
++    freed = await waitForPortFree(port, getPlatformTimeout(5000));
++  } else {
++    removePidFile();
++  }
++
++  if (!freed) {
++    throw new Error(getWorkerRestartInstructions({
++      port,
++      customPrefix: 'Auto-restart failed: port did not free up after shutdown.'
++    }));
++  }
++
++  // Step 3: Spawn new worker daemon
++  const workerScript = path.join(MARKETPLACE_ROOT, 'plugin', 'scripts', 'worker-service.cjs');
++  const pid = spawnDaemon(workerScript, port);
++  if (pid === undefined) {
++    throw new Error(getWorkerRestartInstructions({
++      port,
++      customPrefix: 'Auto-restart failed: could not spawn worker daemon.'
++    }));
++  }
++
++  // Step 4: Wait for the restarted worker to become ready
++  const healthy = await waitForHealth(port, getPlatformTimeout(30000));
++  if (!healthy) {
++    removePidFile();
++    throw new Error(getWorkerRestartInstructions({
++      port,
++      customPrefix: 'Auto-restart failed: worker did not become ready after restart.'
++    }));
++  }
++
++  logger.info('SYSTEM', 'Worker auto-restarted successfully', { port });
++  await checkWorkerVersion();
+ }
