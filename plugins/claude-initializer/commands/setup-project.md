@@ -8,13 +8,84 @@ allowed-tools: Read, Write, Edit, Bash, Glob, Grep, Skill
 
 ## Purpose
 
-One-command project setup that orchestrates all initialization steps in the correct order. Runs init-project, knowledge-sync, permission-sync, and guardrails initialization so a project is fully configured in a single pass.
+One-command project setup that orchestrates all initialization steps in the correct order. Validates claude-mem infrastructure first, then runs init-project, knowledge-sync, permission-sync, and guardrails initialization so a project is fully configured in a single pass.
 
 ## Process
 
-You are the setup orchestrator for the claude-initializer plugin. Your job is to run all setup steps in sequence, skipping steps that are already done, and presenting a final summary.
+You are the setup orchestrator for the claude-initializer plugin. Your job is to validate prerequisites, run all setup steps in sequence, skipping steps that are already done, and presenting a final summary.
 
-## Step 1: Check Prerequisites
+## Step 1: Claude-Mem Validation (BLOCKING)
+
+This step runs **before anything else** and is **blocking**.. if it fails, the setup stops.
+
+### 1a. Check if claude-mem is installed
+
+Check if the directory `~/.claude/plugins/marketplaces/thedotmack` exists and contains `src/shared/worker-utils.ts`.
+
+If claude-mem is **NOT installed**, stop immediately and show:
+
+```
+SETUP ABORTED
+=============
+
+claude-mem is not installed. It is required before running project setup.
+
+To install claude-mem:
+  1. Visit https://github.com/thedotmack/claude-mem
+  2. Follow the installation instructions
+  3. Restart Claude Code
+  4. Run /setup-project again
+```
+
+Do NOT continue with any further steps.
+
+### 1b. Check if claude-mem-patches plugin is available
+
+Check if the claude-mem-patches plugin exists by looking for the apply script. Search for it in these locations (in order):
+1. The plugin root via `CLAUDE_PLUGIN_ROOT` parent directory: look for a sibling `claude-mem-patches/scripts/apply-patches.sh`
+2. Common plugin locations: `~/projects/TOOLS/claude-code-plugins/plugins/claude-mem-patches/scripts/apply-patches.sh`
+
+If claude-mem-patches is **NOT found**, stop immediately and show:
+
+```
+SETUP ABORTED
+=============
+
+claude-mem-patches plugin is not installed. It is required before running project setup.
+
+To install:
+  1. Ensure claude-code-plugins repository is cloned
+  2. The claude-mem-patches plugin should be at: plugins/claude-mem-patches/
+  3. Run /setup-project again
+```
+
+Do NOT continue with any further steps.
+
+### 1c. Apply claude-mem patches
+
+If both are present, check if patches are already applied by looking for `"Auto-restart: try to recover instead of requiring manual intervention"` in `~/.claude/plugins/marketplaces/thedotmack/src/shared/worker-utils.ts`.
+
+If patches are already applied:
+
+```
+Step 0/6: Claude-mem patches already applied. Skipping.
+```
+
+If patches need to be applied, run the apply script:
+
+```bash
+bash <path-to-claude-mem-patches>/scripts/apply-patches.sh
+```
+
+Show the output and confirm success:
+
+```
+Step 0/6: Claude-mem patches applied successfully.
+```
+
+If the apply script fails, show the error but continue with the rest of the setup (patches are important but not blocking for project init).
+
+## Step 2: Check Prerequisites
 
 Check if `.claude/` directory already exists:
 
@@ -36,12 +107,12 @@ Checking prerequisites...
   settings.local.json: [exists/missing]
 ```
 
-## Step 2: Init Project
+## Step 3: Init Project
 
 If `.claude/` does not exist or `CLAUDE.md` is missing:
 
 ```
-Step 1/5: Initializing project...
+Step 1/6: Initializing project...
 ```
 
 Execute `/init-project` to create the base configuration.
@@ -49,13 +120,13 @@ Execute `/init-project` to create the base configuration.
 If already initialized:
 
 ```
-Step 1/5: Project already initialized. Skipping.
+Step 1/6: Project already initialized. Skipping.
 ```
 
-## Step 3: Knowledge Sync
+## Step 4: Knowledge Sync
 
 ```
-Step 2/5: Syncing knowledge components...
+Step 2/6: Syncing knowledge components...
 ```
 
 Execute `/knowledge-sync install --detect` to analyze the project and install relevant components.
@@ -63,14 +134,14 @@ Execute `/knowledge-sync install --detect` to analyze the project and install re
 If knowledge-sync is not available (plugin not installed):
 
 ```
-Step 2/5: knowledge-sync plugin not available. Skipping.
+Step 2/6: knowledge-sync plugin not available. Skipping.
   Install the knowledge-sync plugin for automatic component detection.
 ```
 
-## Step 4: Permissions Sync
+## Step 5: Permissions Sync
 
 ```
-Step 3/5: Syncing permissions...
+Step 3/6: Syncing permissions...
 ```
 
 Execute `/sync-permissions` to apply base permissions to the project.
@@ -78,14 +149,14 @@ Execute `/sync-permissions` to apply base permissions to the project.
 If permission-sync is not available:
 
 ```
-Step 3/5: permission-sync plugin not available. Skipping.
+Step 3/6: permission-sync plugin not available. Skipping.
   Install the permission-sync plugin for automatic permission management.
 ```
 
-## Step 5: Guardrails Init
+## Step 6: Guardrails Init
 
 ```
-Step 4/5: Initializing guardrails...
+Step 4/6: Initializing guardrails...
 ```
 
 Check if `.claude/guardrails.md` already exists:
@@ -103,22 +174,23 @@ Review and customize at .claude/guardrails.md
 If guardrails already exist:
 
 ```
-Step 4/5: Guardrails already configured (N signs). Skipping.
+Step 4/6: Guardrails already configured (N signs). Skipping.
 ```
 
 If task-master plugin is not available:
 
 ```
-Step 4/5: task-master plugin not available. Skipping guardrails.
+Step 4/6: task-master plugin not available. Skipping guardrails.
   Install the task-master plugin for guardrails and task management.
 ```
 
-## Step 6: Summary
+## Step 7: Summary
 
 ```
 SETUP COMPLETE
 ==============
 
+  [x] Claude-mem patches applied
   [x] Project initialized (.claude/ directory, CLAUDE.md)
   [x] Knowledge components installed (N components)
   [x] Permissions synced (N rules)
@@ -135,17 +207,18 @@ Next steps:
 Show which steps were executed vs skipped:
 
 ```
-Steps executed: 3/5
-Steps skipped: 2/5 (already configured)
+Steps executed: N/6
+Steps skipped: N/6 (already configured)
 ```
 
 ## Notes
 
 - This command is idempotent: running it multiple times will skip already-completed steps
-- Each step is independent: if one fails, others can still proceed
+- Claude-mem and claude-mem-patches are **blocking prerequisites**.. setup will not continue without them
+- Each subsequent step is independent: if one fails, others can still proceed
 - The command depends on other plugins being installed for full functionality
 - Guardrails template comes from the task-master plugin
-- If running for the first time, all 5 steps will execute
+- If running for the first time, all 6 steps will execute
 - If running on an already-configured project, most steps will be skipped
 
 ---
