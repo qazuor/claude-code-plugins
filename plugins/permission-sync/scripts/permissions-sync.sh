@@ -67,6 +67,8 @@ add_to_base() {
 }
 
 # Merge base permissions into project (preserving project hooks and other settings)
+# Also resolves conflicts: if a tool is in "allow", remove it from "ask"
+# (more specific ask globs like Edit(**/*) would override bare allow Edit)
 merge_to_project() {
     local tmp_file
     tmp_file=$(mktemp)
@@ -77,11 +79,22 @@ merge_to_project() {
     base_ask=$(jq -c '.permissions.ask // []' "$BASE_PERMS")
     base_deny=$(jq -c '.permissions.deny // []' "$BASE_PERMS")
 
-    # Merge into project, keeping other project settings (hooks, etc.)
+    # Merge into project, then resolve allow vs ask conflicts
     jq --argjson allow "$base_allow" --argjson ask "$base_ask" --argjson deny "$base_deny" '
+        # Step 1: Merge base into project
         .permissions.allow = ($allow + (.permissions.allow // []) | unique | sort) |
         .permissions.ask = ($ask + (.permissions.ask // []) | unique | sort) |
-        .permissions.deny = ($deny + (.permissions.deny // []) | unique | sort)
+        .permissions.deny = ($deny + (.permissions.deny // []) | unique | sort) |
+
+        # Step 2: Resolve conflicts - remove from ask any tool whose base name
+        # (before glob parens) appears as a bare entry in allow.
+        # e.g. if allow has "Edit", remove "Edit", "Edit(**/*)" from ask
+        (.permissions.allow | map(select(test("^[A-Za-z]") and (test("[(*]") | not)))) as $bare_allows |
+        .permissions.ask = [
+            .permissions.ask[] |
+            (split("(")[0]) as $base |
+            select([$bare_allows[] | select(. == $base)] | length == 0)
+        ]
     ' "$PROJECT_SETTINGS" > "$tmp_file" && mv "$tmp_file" "$PROJECT_SETTINGS"
 }
 
