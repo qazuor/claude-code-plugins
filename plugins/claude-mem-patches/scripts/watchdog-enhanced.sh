@@ -5,6 +5,7 @@
 #
 # Enhanced version of the basic watchdog with:
 # - Queue stall detection (queue depth + memorySessionId errors)
+# - Stuck message drain before restart (TTL + max retries)
 # - Restart cooldown to prevent restart loops
 # - Cross-platform stat compatibility (Linux + macOS)
 # - Periodic OK logging (every ~3 hours) to avoid log bloat
@@ -27,6 +28,11 @@ STALL_CHECK_LINES=2000              # Number of recent log lines to scan for sta
 QUEUE_SNAPSHOT_FILE="$CLAUDE_MEM_DIR/.watchdog_queue_snapshot"
 LAST_RESTART_FILE="$CLAUDE_MEM_DIR/.watchdog_last_restart"
 RESTART_COOLDOWN=600                # 10 minutes cooldown between restarts
+
+# Stuck message cleanup thresholds
+PENDING_TTL_SECONDS=7200            # Delete pending messages older than 2 hours
+PENDING_MAX_RETRIES=3               # Delete pending messages after 3 failed retries
+DB_FILE="$CLAUDE_MEM_DIR/claude-mem.db"
 
 # Exit early if claude-mem is not installed
 if [ ! -d "$CLAUDE_MEM_DIR" ] || [ ! -f "$CLAUDE_MEM_DIR/cm-hook.sh" ]; then
@@ -115,6 +121,60 @@ queue_stall_check() {
     return 1
 }
 
+# Drain stuck pending messages from the queue before restart.
+# This prevents the crash loop where the worker endlessly retries
+# unprocessable messages from dead sessions.
+# Strategy: TTL (>2h old = delete) + max retries (>=3 = delete, else increment)
+drain_stuck_messages() {
+    if ! command -v sqlite3 &> /dev/null; then
+        log "DRAIN: sqlite3 not found, skipping queue cleanup"
+        return
+    fi
+    if [ ! -f "$DB_FILE" ]; then
+        log "DRAIN: database not found, skipping queue cleanup"
+        return
+    fi
+
+    local now_epoch
+    now_epoch=$(date +%s)
+    local cutoff_epoch=$((now_epoch - PENDING_TTL_SECONDS))
+
+    # Count messages before cleanup
+    local total_pending
+    total_pending=$(sqlite3 "$DB_FILE" "SELECT count(*) FROM pending_messages WHERE status = 'pending';" 2>/dev/null || echo "0")
+
+    if [ "$total_pending" -eq 0 ]; then
+        return
+    fi
+
+    # Step 1: Delete messages older than TTL (2 hours)
+    local expired_count
+    expired_count=$(sqlite3 "$DB_FILE" "SELECT count(*) FROM pending_messages WHERE status = 'pending' AND created_at_epoch < $cutoff_epoch;" 2>/dev/null || echo "0")
+    if [ "$expired_count" -gt 0 ]; then
+        sqlite3 "$DB_FILE" "DELETE FROM pending_messages WHERE status = 'pending' AND created_at_epoch < $cutoff_epoch;" 2>/dev/null
+        log "DRAIN: Deleted $expired_count expired messages (older than ${PENDING_TTL_SECONDS}s)"
+    fi
+
+    # Step 2: Increment retry_count for remaining pending messages
+    sqlite3 "$DB_FILE" "UPDATE pending_messages SET retry_count = retry_count + 1 WHERE status = 'pending';" 2>/dev/null
+
+    # Step 3: Delete messages that exceeded max retries
+    local retried_count
+    retried_count=$(sqlite3 "$DB_FILE" "SELECT count(*) FROM pending_messages WHERE status = 'pending' AND retry_count >= $PENDING_MAX_RETRIES;" 2>/dev/null || echo "0")
+    if [ "$retried_count" -gt 0 ]; then
+        sqlite3 "$DB_FILE" "DELETE FROM pending_messages WHERE status = 'pending' AND retry_count >= $PENDING_MAX_RETRIES;" 2>/dev/null
+        log "DRAIN: Deleted $retried_count messages exceeding max retries ($PENDING_MAX_RETRIES)"
+    fi
+
+    # Log summary
+    local remaining
+    remaining=$(sqlite3 "$DB_FILE" "SELECT count(*) FROM pending_messages WHERE status = 'pending';" 2>/dev/null || echo "0")
+    local cleaned=$((total_pending - remaining))
+    if [ "$cleaned" -gt 0 ]; then
+        log "DRAIN: Cleaned $cleaned/$total_pending stuck messages ($remaining remaining)"
+    fi
+}
+
 # Kill existing worker processes
 kill_worker() {
     pkill -f "bun.*worker-service.cjs.*--daemon" 2>/dev/null || true
@@ -154,6 +214,7 @@ restart_worker() {
 
     log "RESTARTING: $reason"
     date +%s > "$LAST_RESTART_FILE"
+    drain_stuck_messages
     kill_worker
     start_worker
 
