@@ -5,8 +5,10 @@
 #
 # Applies all custom patches to the installed claude-mem plugin:
 # 1. Worker auto-restart patch (worker-utils.ts)
-# 2. Enhanced watchdog with queue stall detection
-# 3. Crontab setup for watchdog
+# 2. Enhanced watchdog with queue stall detection + stuck message drain
+# 3. Fast-fail start guard for hooks (prevents blocking on slow worker)
+# 4. Hooks patching (replaces direct bun start with fast guard)
+# 5. Crontab setup for watchdog
 #
 # Usage: bash apply-patches.sh [--dry-run] [--skip-rebuild] [--skip-cron]
 # =============================================================================
@@ -150,10 +152,94 @@ else
     log "  Installed to $WATCHDOG_DEST"
 fi
 
-# --- Step 4: Setup crontab ---
+# --- Step 4: Install fast-fail start guard ---
+
+START_GUARD_SRC="$PLUGIN_DIR/scripts/cm-start-guard.sh"
+START_GUARD_DEST="$CLAUDE_MEM_DATA_DIR/cm-start-guard.sh"
+
+log "Step 4: Fast-fail start guard"
+
+if [ ! -f "$START_GUARD_SRC" ]; then
+    error "Start guard not found: $START_GUARD_SRC"
+    exit 1
+fi
+
+if [ "$DRY_RUN" = true ]; then
+    log "  [DRY RUN] Would install start guard to $START_GUARD_DEST"
+else
+    if [ -f "$START_GUARD_DEST" ] && diff -q "$START_GUARD_SRC" "$START_GUARD_DEST" > /dev/null 2>&1; then
+        log "  Start guard already up to date. Skipping."
+    else
+        cp "$START_GUARD_SRC" "$START_GUARD_DEST"
+        chmod +x "$START_GUARD_DEST"
+        log "  Installed to $START_GUARD_DEST"
+    fi
+fi
+
+# --- Step 4b: Patch hooks.json to use start guard ---
+
+log "Step 4b: Hooks patching"
+
+# Find all hooks.json in cache and marketplace
+HOOKS_FILES=()
+for dir in "$HOME/.claude/plugins/cache/thedotmack/claude-mem"/*/hooks \
+           "$CLAUDE_MEM_DIR/plugin/hooks" \
+           "$HOME/.claude/plugins/cache/thedotmack/claude-mem"/*/; do
+    if [ -f "$dir/hooks.json" ] 2>/dev/null; then
+        HOOKS_FILES+=("$dir/hooks.json")
+    fi
+done
+
+# Also check direct cache path
+for hf in "$HOME/.claude/plugins/cache/thedotmack/claude-mem"/*/hooks/hooks.json; do
+    [ -f "$hf" ] && HOOKS_FILES+=("$hf")
+done
+
+# Deduplicate
+HOOKS_FILES=($(printf '%s\n' "${HOOKS_FILES[@]}" | sort -u))
+
+if [ ${#HOOKS_FILES[@]} -eq 0 ]; then
+    log "  No hooks.json found to patch. Skipping."
+else
+    for hooks_file in "${HOOKS_FILES[@]}"; do
+        if grep -q "cm-start-guard.sh" "$hooks_file" 2>/dev/null; then
+            log "  Already patched: $hooks_file"
+            continue
+        fi
+        if ! grep -q "worker-service.cjs.*start" "$hooks_file" 2>/dev/null; then
+            log "  No start commands found in: $hooks_file. Skipping."
+            continue
+        fi
+        if [ "$DRY_RUN" = true ]; then
+            log "  [DRY RUN] Would patch: $hooks_file"
+        else
+            # Use python3 for reliable JSON manipulation
+            python3 -c "
+import json, sys
+guard_path = sys.argv[1]
+hooks_path = sys.argv[2]
+with open(hooks_path) as f:
+    data = json.load(f)
+for event_hooks in data.get('hooks', {}).values():
+    for group in event_hooks:
+        for hook in group.get('hooks', []):
+            cmd = hook.get('command', '')
+            if 'worker-service.cjs' in cmd and cmd.strip().endswith('start'):
+                hook['command'] = guard_path
+                hook['timeout'] = 10
+with open(hooks_path, 'w') as f:
+    json.dump(data, f, indent=2)
+    f.write('\n')
+" "$START_GUARD_DEST" "$hooks_file"
+            log "  Patched: $hooks_file"
+        fi
+    done
+fi
+
+# --- Step 5: Setup crontab ---
 
 if [ "$SKIP_CRON" = false ]; then
-    log "Step 4: Crontab setup"
+    log "Step 5: Crontab setup"
     CRON_ENTRY="*/10 * * * * $WATCHDOG_DEST"
 
     if crontab -l 2>/dev/null | grep -qF "$WATCHDOG_DEST"; then
@@ -178,13 +264,13 @@ if [ "$SKIP_CRON" = false ]; then
         fi
     fi
 else
-    log "Step 4: Crontab setup skipped (--skip-cron)"
+    log "Step 5: Crontab setup skipped (--skip-cron)"
 fi
 
-# --- Step 5: Restart worker ---
+# --- Step 6: Restart worker ---
 
 if [ "$SKIP_REBUILD" = false ]; then
-    log "Step 5: Restarting worker"
+    log "Step 6: Restarting worker"
     if [ "$DRY_RUN" = true ]; then
         log "  [DRY RUN] Would restart worker"
     else
@@ -193,7 +279,7 @@ if [ "$SKIP_REBUILD" = false ]; then
         log "  Worker restarted."
     fi
 else
-    log "Step 5: Worker restart skipped (rebuild was skipped)"
+    log "Step 6: Worker restart skipped (rebuild was skipped)"
 fi
 
 log ""
