@@ -86,3 +86,14 @@ play_beep() {
 }
 
 play_beep
+
+# ---------------------------------------------------------------------------
+# Push Notification (qz-notifier)
+# ---------------------------------------------------------------------------
+# Send push notification so the user knows Claude needs attention,
+# even when away from the terminal. Runs in background to avoid
+# blocking the hook within its timeout.
+if command -v notify &>/dev/null; then
+    notify -t "Claude Code" -p high -g "robot" --quiet \
+        "Finished - waiting for input" &>/dev/null &
+fi

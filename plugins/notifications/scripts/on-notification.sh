@@ -167,6 +167,16 @@ speak_message() {
 speak_message "$message" || true
 
 # ---------------------------------------------------------------------------
+# Push Notification (qz-notifier)
+# ---------------------------------------------------------------------------
+# Forward the notification message via push channels (ntfy.sh, Telegram, etc.)
+# so the user gets alerted even when away from the terminal.
+# Runs in background to avoid blocking the hook within its timeout.
+if command -v notify &>/dev/null; then
+    notify -t "Claude Code" -g "bell" --quiet "$message" &>/dev/null &
+fi
+
+# ---------------------------------------------------------------------------
 # Logging
 # ---------------------------------------------------------------------------
 mkdir -p "$LOG_DIR"
