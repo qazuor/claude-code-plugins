@@ -174,11 +174,12 @@ Learned constraints stored in `.claude/guardrails.md`:
 **Purpose:** Pre-configured MCP (Model Context Protocol) server definitions.
 
 **What it does:**
-- Provides 30 ready-to-use MCP server configurations
+- Provides 30 ready-to-use MCP server configurations in `mcp-catalog.json`
 - Covers databases, browsers, Git, GitHub, Docker, and more
-- Just add API keys and enable
+- Just copy desired entries, add API keys, and enable
 
 **What it doesn't do:**
+- Doesn't auto-load servers (catalog is a reference file, not auto-loaded by Claude Code)
 - Doesn't install the MCP servers (you need npm/uvx)
 - Doesn't manage API keys (you provide them)
 
@@ -200,7 +201,7 @@ Learned constraints stored in `.claude/guardrails.md`:
 | Platforms | `supabase`, `notion`, `vercel`, `linear`, `sentry`, `socket`, `mercadopago` |
 | Docs | `cloudflare-docs`, `astro-docs` |
 
-**Usage:** Copy desired server configs to your `~/.claude.json` or project `.mcp.json`
+**Usage:** Copy desired server configs from `mcp-catalog.json` to your `~/.claude.json` (`mcpServers` key) or project `.mcp.json`
 
 ---
 

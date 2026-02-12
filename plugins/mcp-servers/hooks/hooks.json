@@ -1,0 +1,16 @@
+{
+  "description": "MCP server sync hook: auto-syncs catalog servers to user config on session start",
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "${CLAUDE_PLUGIN_ROOT}/scripts/mcp-sync.sh",
+            "timeout": 10
+          }
+        ]
+      }
+    ]
+  }
+}
