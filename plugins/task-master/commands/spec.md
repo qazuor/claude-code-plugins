@@ -366,6 +366,10 @@ Tags should be derived from the spec content: affected components, technologies,
 
 Create or update `.claude/specs/index.json` to include the new spec entry. If the file does not exist, create it as an array. Add an entry with `specId`, `title`, `type`, `complexity`, `status`, and `path`.
 
+**Always use the `index-sync` skill for this write** so that `tasks/index.json` is updated in the same atomic operation.  NEVER write one index alone.
+
+At this point `tasks/index.json` may not yet have an epic entry for this spec (that is created in Step 5c).  index-sync handles this gracefully — it will create the entry if it does not exist.
+
 ## Step 5: Generate Ultra-Granular Atomic Tasks
 
 After spec is published, invoke the **task-from-spec** skill to generate tasks from the approved specification.
@@ -419,7 +423,14 @@ Spec: SPEC-NNN | Status: in-progress | Progress: 0/N
 
 ### 5c. Update task index
 
-Update `.claude/tasks/index.json` to add the new epic. If the file does not exist, create it following the index schema at `templates/index-schema.json`:
+Update both `.claude/tasks/index.json` **and** `.claude/specs/index.json` using the **index-sync skill**.  NEVER write one index alone.
+
+Use index-sync with:
+- `specId`: the newly generated SPEC-NNN
+- `newStatus`: `"draft"` (maps to `"pending"` in tasks index)
+- `newProgress`: `"0/N"` where N is the total number of generated tasks
+
+If the file does not exist, create it following the index schema at `templates/index-schema.json`:
 
 ```json
 {
@@ -480,3 +491,4 @@ Specification created successfully!
 - **Directories**: Create with `mkdir -p` and check with `[ -d "$DIR" ]`
 - **Errors**: ALWAYS suppress with `2>/dev/null` or `|| true` when files/dirs might not exist.
 - **No visible errors**: The user should NEVER see "Exit code" errors in the output.
+- **Index writes**: ALWAYS update both indexes via the `index-sync` skill (Steps 4d and 5c).  NEVER write one index alone.

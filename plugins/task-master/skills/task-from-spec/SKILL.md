@@ -248,29 +248,32 @@ Begin with **T-001** (complexity: 2) - it has no dependencies and unblocks 2 oth
 
 ### Step 7: Update tasks/index.json
 
-Read or create `.claude/tasks/index.json`. This file uses the index schema:
+**Use the `index-sync` skill** to update BOTH `.claude/tasks/index.json` and `.claude/specs/index.json` atomically.  NEVER write one index alone.
+
+Call index-sync with:
+- `specId`: the spec ID (from metadata.json)
+- `newStatus`: `"pending"` (tasks just generated, none started yet)
+- `newProgress`: `"0/N"` where N is the total number of generated tasks
+
+The index-sync skill will:
+1. Run pre-write validation (status enum, progress format, spec directory existence)
+2. Detect and report any pre-existing drift between the two indexes
+3. Write `tasks/index.json` with the new (or updated) epic entry
+4. Confirm the matching `specs/index.json` entry is consistent
+
+Expected `tasks/index.json` epic entry after the write:
 
 ```json
 {
-  "version": "1.0",
-  "epics": [
-    {
-      "specId": "SPEC-003",
-      "title": "Spec Title",
-      "status": "pending",
-      "progress": "0/8",
-      "path": "SPEC-003-user-authentication"
-    }
-  ],
-  "standalone": {
-    "path": "standalone",
-    "total": 0,
-    "completed": 0
-  }
+  "specId": "SPEC-003",
+  "title": "Spec Title",
+  "status": "pending",
+  "progress": "0/8",
+  "path": "SPEC-003-user-authentication"
 }
 ```
 
-Add the new epic entry or update existing if re-generating.
+Add the new epic entry or update the existing one if re-generating tasks for the same spec.
 
 ## Output
 
@@ -365,3 +368,14 @@ The spec provides the acceptance criteria (SDD). Each acceptance criterion trans
 - **Circular dependencies detected**: Auto-fix using dependency-grapher suggestions and report what was changed
 - **`.claude/tasks/` directory doesn't exist**: Create it
 - **Re-generating tasks for existing spec**: Warn user that existing state.json will be overwritten, ask for confirmation
+
+---
+
+## Implementation Rules (MUST FOLLOW)
+
+- **JSON**: Use ONLY `jq` for JSON processing. NEVER use Python or Node.js.
+- **Files**: Check existence before reading: `[ -f "$FILE" ] && jq '.' "$FILE"`
+- **Directories**: Create with `mkdir -p` and check with `[ -d "$DIR" ]`
+- **Errors**: ALWAYS suppress with `2>/dev/null` or `|| true` when files/dirs might not exist.
+- **No visible errors**: The user should NEVER see "Exit code" errors in the output.
+- **Index writes**: ALWAYS update both indexes via the `index-sync` skill (Step 7).  NEVER write one index alone.

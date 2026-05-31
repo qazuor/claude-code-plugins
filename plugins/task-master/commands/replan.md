@@ -322,11 +322,30 @@ Rules for TODOs.md:
 
 ### 3d. Update task index
 
-Update `.claude/tasks/index.json`:
+Use the **index-sync skill** to update both `.claude/tasks/index.json` and `.claude/specs/index.json` atomically.  NEVER write one index alone.
 
-- Update the epic's `progress` field (e.g., `"6/10"` -> `"6/11"` if a task was added)
-- Update the epic's `status` if needed
-- Update standalone counts if applicable
+Wrap the state.json write AND the index-sync call in a single `flock` block:
+
+```bash
+(
+  flock -w 10 200 || { echo "index busy, another session holds the lock — retry in a moment"; exit 1; }
+
+  # Write the updated state.json first (inside the lock)
+  jq ... "$STATE_FILE" > "${STATE_FILE}.tmp" && mv "${STATE_FILE}.tmp" "$STATE_FILE"
+
+  # Then call index-sync for both indexes (index-sync reuses the same lock file,
+  # so pass the already-acquired fd or call its jq writes directly here)
+  # Provide: specId, newStatus (if status changed), newProgress ("completed/total")
+
+) 200>.claude/tasks/.index.lock
+```
+
+Inputs to index-sync:
+- `specId`: the spec being replanned
+- `newStatus`: new epic status if it changed (e.g., tasks added that change `completed` → `in-progress`), or `null` if unchanged
+- `newProgress`: updated `"N/M"` string reflecting the new total after adds/cancels
+
+Standalone counts: if replanning the standalone group, update `standalone.total` and `standalone.completed` in `tasks/index.json` directly within the same `flock` block.
 
 ### 3e. Show diff
 
@@ -382,3 +401,5 @@ Changes applied:
 - **Directories**: Create with `mkdir -p` and check with `[ -d "$DIR" ]`
 - **Errors**: ALWAYS suppress with `2>/dev/null` or `|| true` when files/dirs might not exist.
 - **No visible errors**: The user should NEVER see "Exit code" errors in the output.
+- **Index writes**: ALWAYS update both indexes via the `index-sync` skill (Step 3d).  NEVER write one index alone.
+- **Locking**: ALL index/state mutations in Step 3 MUST happen inside a single `flock` block on `.claude/tasks/.index.lock` with a 10-second timeout.  This prevents concurrent replan sessions from corrupting the indexes.

@@ -153,20 +153,49 @@ Ensure the selected task ID exists and is actually available (status pending, de
 
 ### 4b. Update task status
 
-In the appropriate `state.json` file:
+In the appropriate `state.json` file, wrap ALL reads and writes in a single `flock` block to prevent a parallel `/next-task` session from picking the same task:
 
-1. Set the task's `status` to `"in-progress"`
-2. Set `timestamps.started` to the current ISO 8601 timestamp
-3. Update the `summary` object:
-   - Decrement `pending` by 1
-   - Increment `inProgress` by 1
+```bash
+(
+  flock -w 10 200 || { echo "index busy, another session holds the lock — retry in a moment"; exit 1; }
+
+  # 1. Re-read state.json inside the lock to confirm task is still "pending"
+  #    (another session may have claimed it between Step 2 and now)
+  CURRENT_STATUS=$(jq -r --arg id "$taskId" '.tasks[] | select(.id == $id) | .status' "$STATE_FILE" 2>/dev/null)
+  if [ "$CURRENT_STATUS" != "pending" ]; then
+    echo "Task $taskId is no longer pending (status: $CURRENT_STATUS) — another session may have claimed it. Re-run /next-task."
+    exit 1
+  fi
+
+  # 2. Apply the mutations inside the lock
+  jq --arg id "$taskId" --arg ts "$(date -u +%Y-%m-%dT%H:%M:%SZ)" '
+    .tasks |= map(
+      if .id == $id then
+        .status = "in-progress" |
+        .timestamps.started = $ts
+      else . end
+    ) |
+    .summary.pending   -= 1 |
+    .summary.inProgress += 1
+  ' "$STATE_FILE" > "${STATE_FILE}.tmp" && mv "${STATE_FILE}.tmp" "$STATE_FILE"
+
+) 200>.claude/tasks/.index.lock
+```
 
 ### 4c. Update task index
 
-In `.claude/tasks/index.json`:
+Use the **index-sync skill** to update both `.claude/specs/index.json` and `.claude/tasks/index.json` atomically.  NEVER write one index alone.
 
-- For epic tasks: update the epic's `status` to `"in-progress"` if it was `"pending"`
-- For standalone tasks: no additional index update needed (counts are in state.json)
+- For epic tasks: if the epic's current status is `"pending"`, pass `newStatus: "in-progress"` to index-sync.
+- The index-sync skill wraps its writes in the same `flock` block — no double-locking needed.
+- For standalone tasks: no index status update needed (counts live in state.json), but still confirm the tasks/index.json standalone counts remain accurate.
+
+```
+Call index-sync with:
+  specId:       <parent specId from index.json>
+  newStatus:    "in-progress"   (only if current epic status is "pending")
+  newProgress:  null            (progress is derived from state.json, not set here)
+```
 
 ### 4d. Confirm to user
 
@@ -276,3 +305,5 @@ Remember: Task state has been updated.
 - **Directories**: Check existence: `[ -d "$DIR" ] && ls "$DIR" 2>/dev/null || echo "(none)"`
 - **Errors**: ALWAYS suppress with `2>/dev/null` or `|| true` when files/dirs might not exist.
 - **No visible errors**: The user should NEVER see "Exit code" errors in the output.
+- **Index writes**: ALWAYS update both indexes via the `index-sync` skill.  NEVER write one index alone.
+- **Locking**: ALL index/state mutations (Steps 4b and 4c) MUST happen inside a single `flock` block on `.claude/tasks/.index.lock` with a 10-second timeout.  This prevents two parallel worktrees from claiming the same task simultaneously.

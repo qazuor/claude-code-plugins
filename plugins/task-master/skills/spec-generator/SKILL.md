@@ -220,7 +220,20 @@ Only proceed to Step 9 once all four gates pass or remaining gaps are explicitly
 
 ### Step 9: Update index.json
 
-Read or create `.claude/specs/index.json` with this structure:
+**Use the `index-sync` skill** to add the new spec entry to BOTH `.claude/specs/index.json` and `.claude/tasks/index.json` atomically.  NEVER write one index alone.
+
+Call index-sync with:
+- `specId`: the generated SPEC-NNN
+- `newStatus`: `"draft"`
+- `newProgress`: `null` (no tasks generated yet at this stage — `task-from-spec` will set progress in its Step 7)
+
+The index-sync skill will:
+1. Run pre-write validation (status enum check, spec directory existence check)
+2. Append the new entry to `specs/index.json` if it does not exist
+3. Append a corresponding `pending` entry to `tasks/index.json` if it does not exist
+4. Report any drift it finds on existing entries before writing
+
+Expected `specs/index.json` structure after the write:
 
 ```json
 {
@@ -237,8 +250,6 @@ Read or create `.claude/specs/index.json` with this structure:
   ]
 }
 ```
-
-Add the new spec entry to the `specs` array and write the file back.
 
 ## Output
 
@@ -284,3 +295,14 @@ Spec generated successfully!
 - If `.claude/specs/` directory doesn't exist: Create it
 - If template files cannot be found at `${CLAUDE_PLUGIN_ROOT}/templates/`: Report the error and suggest checking plugin installation
 - If the plan content is ambiguous about complexity: Default to `medium` and note the assumption
+
+---
+
+## Implementation Rules (MUST FOLLOW)
+
+- **JSON**: Use ONLY `jq` for JSON processing. NEVER use Python or Node.js.
+- **Files**: Check existence before reading: `[ -f "$FILE" ] && jq '.' "$FILE"`
+- **Directories**: Create with `mkdir -p` and check with `[ -d "$DIR" ]`
+- **Errors**: ALWAYS suppress with `2>/dev/null` or `|| true` when files/dirs might not exist.
+- **No visible errors**: The user should NEVER see "Exit code" errors in the output.
+- **Index writes**: ALWAYS update both indexes via the `index-sync` skill (Step 9).  NEVER write one index alone.
