@@ -245,93 +245,27 @@ Use the approved plan from Step 0 as the foundation for the specification. The s
 
 ### 3a. Generate Spec ID
 
-Use a three-source scan to determine the next SPEC-NNN number. The goal is to prevent two
-parallel sessions or worktrees from allocating the same number. Each source is a fallback for
-the previous; all three together give the strongest collision guarantee.
+Delegate number allocation to the **spec-allocation skill** (`skills/spec-allocation/`).
+It is the single source of the allocation protocol — do NOT reimplement the scan here.
 
-**Source 1 — index.json (always run):**
+Run the skill's **Allocate** flow. It:
 
-Read `.claude/specs/index.json` and extract the highest SPEC-NNN number present. If the file
-does not exist, treat the maximum as 0.
+1. Scans `index.json` + `git log --all` via `scripts/scan-spec-numbers.sh` (catches spec
+   dirs created on never-merged branches — the strongest collision guard).
+2. If engram is available, cross-checks `lastNumber` and reserves the number in the
+   `spec-registry/<project>` registry. Engram is best-effort — if it is unavailable the
+   skill warns and proceeds on the git+index scan alone. It NEVER blocks spec creation.
+3. Returns the zero-padded `SPEC-NNN` number and the directory path
+   `.claude/specs/SPEC-NNN-<slug>/`.
 
-```bash
-INDEX_MAX=$([ -f .claude/specs/index.json ] && \
-  jq -r '[.[] | .specId // .id // "" | scan("SPEC-([0-9]+)") | tonumber] | max // 0' \
-  .claude/specs/index.json 2>/dev/null || echo 0)
-```
+Generate the slug from the title (lowercase, hyphens, max 50 chars). ONLY create the
+spec directory after the skill returns the number.
 
-**Source 2 — git log (always run):**
+> The skill may pause and ask for input if it finds a stale reservation (>14 days old)
+> in the registry — resume / abandon / skip. Surface that question to the user.
 
-Scan all branches for spec directories created in the past, including those never merged.
-
-```bash
-GIT_MAX=$(git log --all --name-only --format="" -- ".claude/specs/" 2>/dev/null | \
-  grep -oE "SPEC-[0-9]+" | grep -oE "[0-9]+" | sort -n | tail -1 || echo 0)
-```
-
-Take `CANDIDATE = max(INDEX_MAX, GIT_MAX) + 1`.
-
-**Source 3 — engram registry (OPTIONAL, best-effort — run only if engram tools are available):**
-
-> **Engram is optional.** If the engram MCP tools are not available in this session, skip this
-> source entirely and fall through to the final candidate computed from Sources 1 and 2. Do NOT
-> fail or pause if engram is unreachable — just warn and continue.
-
-Derive the project name from the repo root directory name (e.g., `basename $(git rev-parse --show-toplevel)`).
-
-1. Search engram for `task-master/spec-registry/<project>`:
-   ```
-   mem_search(query: "task-master/spec-registry/<project>", project: "<project>")
-   ```
-2. If a result is found, retrieve the full observation:
-   ```
-   mem_get_observation(id: <result_id>)
-   ```
-   Parse the `lastNumber` field from the JSON content. Let `ENGRAM_MAX = lastNumber`.
-3. Update `CANDIDATE = max(CANDIDATE, ENGRAM_MAX + 1)`.
-4. If no result is found, treat `ENGRAM_MAX = 0` and keep the candidate from Sources 1 and 2.
-5. If engram tools are unavailable or any call throws an error, log a one-line warning:
-   ```
-   [spec] engram unavailable — using index.json + git scan only (SPEC-NNN).
-   ```
-   Then continue with the candidate from Sources 1 and 2. Do NOT block spec creation.
-
-**Reserve the number in engram (OPTIONAL — only if engram is available and Sources 3 above succeeded):**
-
-After computing the final `CANDIDATE`, save a reservation so parallel sessions see it:
-
-```
-mem_save(
-  title: "Reserve SPEC-<CANDIDATE> for <slug>",
-  type: "decision",
-  scope: "project",
-  topic_key: "task-master/spec-registry/<project>",
-  content: {
-    "lastNumber": <CANDIDATE>,
-    "allocations": [
-      {
-        "specId": "SPEC-<CANDIDATE>",
-        "slug": "<slug>",
-        "status": "reserved",
-        "reservedAt": "<ISO timestamp>",
-        "branch": "<current git branch>"
-      }
-    ]
-  }
-)
-```
-
-On the first git commit that touches the `.claude/specs/SPEC-<CANDIDATE>-<slug>/` directory,
-update the engram entry with `"status": "active"` by calling `mem_save` again with the same
-`topic_key` (upsert). This transitions the reservation to active and prevents stale-reservation
-accumulation.
-
-**Final step — compute directory:**
-
-Generate a URL-friendly slug from the title (lowercase, hyphens, max 50 chars).
-The directory will be: `.claude/specs/SPEC-<CANDIDATE>-<slug>/`
-
-Use `CANDIDATE` zero-padded to 3 digits as the spec number (e.g., `007`, `042`, `123`).
+On the first commit that touches the spec dir, run the skill's **Activate** flow to flip
+the reservation from `reserved` to `active`.
 
 ### 3b. Enter Plan Mode
 
