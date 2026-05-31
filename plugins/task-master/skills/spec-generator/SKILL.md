@@ -186,6 +186,38 @@ Create `.claude/specs/SPEC-NNN-slug/metadata.json` with this structure:
 - Extract architectural layers affected (e.g., `database`, `api`, `frontend`, `service`)
 - Limit to 10 tags maximum, lowercase, hyphen-separated
 
+### Step 8b: Self-Review Pass (Before Writing Any Files)
+
+Before writing `spec.md` to disk, re-read the entire generated spec content once more and apply a four-point quality gate. This is the final check before the spec becomes a committed document.
+
+**Gate 1 — Completeness:**
+- Does every section have real content, or are there placeholders and "TBD" entries that should have been resolved by this point?
+- Is the Testing Strategy section present and specific (named test files, scenarios, coverage targets)?
+- Are all edge cases and error scenarios documented with explicit expected behavior?
+
+**Gate 2 — Testability:**
+- Can every single acceptance criterion be written as an automated test with a clear pass/fail condition?
+- Flag any criterion that uses vague language ("works correctly", "is responsive", "looks right") — rewrite it with a measurable outcome.
+
+**Gate 3 — No-Ambiguity / Junior-Implementability:**
+- Read the spec as a junior developer with no prior context. Would they be able to implement it without asking any clarifying questions?
+- Is every technical decision explicit? (exact file paths, function signatures, data shapes, patterns to follow)
+- Are scope boundaries explicit — not just what is included but also what is intentionally excluded?
+
+**Gate 4 — Architectural Consistency:**
+- Does every proposed change follow the existing patterns observed in the codebase?
+- Are there any conflicts with established conventions (naming, structure, error handling, validation approach)?
+- Are all external service/library claims verified? If web search was used, are the source URLs noted in the spec?
+
+**After the self-review:**
+- Fix any issues found in Gates 1-4 before writing the file.
+- Add a `## Spec Quality Notes` section at the end of the spec listing:
+  - Anything strengthened or clarified during the self-review
+  - Any remaining open questions that MUST be resolved before implementation starts (these become blockers for task generation)
+  - External sources verified (URL + date)
+
+Only proceed to Step 9 once all four gates pass or remaining gaps are explicitly documented as open questions.
+
 ### Step 9: Update index.json
 
 Read or create `.claude/specs/index.json` with this structure:

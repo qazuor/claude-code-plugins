@@ -73,24 +73,60 @@ Ask the user questions across ALL of these categories. Do not skip any category.
 - What could go wrong? What are the risks?
 - Are there backwards compatibility concerns?
 
-### 0c. Question Guidelines
+**Alternative Approaches (MANDATORY — evaluate before committing):**
+- Is this the simplest possible way to solve the problem? Could a simpler mechanism achieve the same result?
+- Are there trade-offs between approaches (complexity vs. flexibility, coupling vs. independence)?
+- Does the proposed approach align with existing patterns in the codebase, or would it introduce a new pattern?
+- If a new pattern would be introduced, is that justified? What are the long-term maintenance implications?
+- Present 2-3 alternative designs to the user and explain the trade-offs for each before finalizing the approach.
+
+**External Services and Libraries (MANDATORY when applicable):**
+- Does the feature touch any external API, library, or service (payment processor, authentication provider, cloud storage, etc.)?
+- If yes: read the relevant documentation using web search to verify API shapes, authentication flows, error codes, rate limits, and known gotchas. Do NOT rely on training data alone — APIs change.
+- List every external integration and the documentation URL you verified against.
+
+**Inconsistency and Conflict Detection:**
+- Does this feature overlap in any way with existing functionality already implemented?
+- Could this change break or regress any currently working feature?
+- Are there naming conflicts, schema conflicts, or permission model conflicts with existing code?
+- Does any part of this requirement contradict another part of the same requirement?
+- Flag every inconsistency to the user before proceeding.
+
+### 0c. Codebase Exploration (Do Before Finalizing Questions)
+
+Before concluding the questioning phase, explore the actual codebase to inform your questions and identify gaps the user may not have thought about:
+
+1. **Scan affected areas**: Read files in directories related to the feature. Identify existing patterns, naming conventions, and architectural constraints that the spec MUST follow.
+2. **Check for existing implementations**: Is there anything already partially implemented or similar to what is being requested? Report findings to the user — they may not know.
+3. **Identify implicit constraints**: Does the codebase enforce patterns (e.g., always use a base service class, always validate with Zod, always use a specific response factory)? These must be reflected in the spec.
+4. **Flag complexity gaps**: If the user underestimates complexity based on what you see in the code, tell them explicitly.
+
+### 0d. Question Guidelines
 
 - **Do NOT assume.** If something is unclear, ask.
 - **Do NOT interpret freely.** If the answer is ambiguous, ask for clarification.
 - **Ask follow-up questions.** One answer often reveals the need for more questions.
 - **Validate understanding.** Summarize what you understood and ask the user to confirm.
 - **10-20 questions is normal** for a medium-to-complex feature. The user prefers thorough questioning over bad assumptions during development.
+- **Propose alternatives.** For every significant design decision, present at least 2 options with trade-offs before letting the user decide. Never unilaterally pick an approach without offering alternatives.
+- **Comment on quality.** If a proposed approach could be done better, say so directly and explain why. Do not just passively accept the user's first instinct.
 
-### 0d. Get Plan Approval
+### 0e. Overlap Pre-Check (Run During Step 0, Not After)
+
+Do NOT wait for Step 1 to check overlaps. During the questioning phase, scan `.claude/specs/index.json` and `.claude/tasks/index.json` for any spec or task that could intersect with the requirement. If overlaps are found, present them to the user as part of the questioning phase so the scope can be adjusted before any spec is written. This prevents writing a spec that duplicates existing work.
+
+### 0f. Get Plan Approval
 
 After all questions are answered, present a summary of the plan:
 1. What will be built (functional description)
-2. How it will be built (technical approach)
+2. How it will be built (technical approach, with alternatives considered and why this one was chosen)
 3. What files will be created/modified
 4. What the user flows look like
 5. What the edge cases and error handling look like
 6. What the testing strategy is
-7. What is out of scope
+7. What is out of scope (explicitly)
+8. What external services/libraries are involved and which docs were verified
+9. What inconsistencies or risks were identified
 
 **The user must explicitly approve this plan before proceeding to Step 1.**
 
@@ -253,9 +289,41 @@ Fill in the template frontmatter:
 - `status`: `draft`
 - `created`: current ISO 8601 timestamp
 
-### 3c. Present for approval
+### 3c. Internal Review Passes (Before Presenting to User)
 
-After writing the plan, present it to the user for review. The user must explicitly approve the spec before it is published.
+Before presenting the spec for user approval, run N internal review passes. Do NOT skip this — it is the last quality gate before the spec becomes a contract for development.
+
+**Pass 1 — Completeness and Junior-Readability Gate:**
+Read every section of the spec as if you are a junior developer seeing it for the first time.
+- Could a junior developer implement this with zero guessing? If not, add more detail.
+- Is every decision explicit? (file paths, function signatures, data shapes, error handling)
+- Is anything left to "the developer's judgment"? If yes, either resolve it or flag it as an open question for the user.
+- Are all edge cases and error scenarios explicitly documented with expected behavior?
+
+**Pass 2 — Technical Coherence Gate:**
+- Is every technical decision coherent with the existing architecture seen in the codebase?
+- Does the spec introduce any pattern that conflicts with established conventions?
+- Are all the layer interactions correct? (DB → Service → API → Frontend in that order)
+- Are dependencies justified and minimal? Does any proposed dependency already exist in the project?
+
+**Pass 3 — External API/Library Accuracy Gate (only if external services are involved):**
+- For every external API, library, or service referenced, verify the actual endpoint names, authentication mechanisms, response shapes, and error codes against the real documentation (use web search).
+- Replace any guessed or potentially stale information with verified facts.
+- Add a note to the spec for each external integration: "Verified against [URL] on [date]."
+
+**Pass 4 — Acceptance Criteria Testability Gate:**
+- Can every single acceptance criterion be implemented as an automated test?
+- Is each criterion specific enough to have a clear pass/fail condition?
+- Are there acceptance criteria that are too vague (e.g., "works correctly", "is fast", "looks good")? Replace with measurable criteria.
+
+**After all passes**, add a `## Internal Review Notes` section at the bottom of the draft listing:
+- Any items strengthened during the review
+- Any open questions that require user input before implementation
+- External docs verified (URLs)
+
+### 3d. Present for approval
+
+After completing all internal review passes, present the spec to the user for review. The user must explicitly approve the spec before it is published.
 
 ## Step 4: Publish Specification
 
