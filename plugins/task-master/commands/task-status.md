@@ -22,19 +22,25 @@ The user may provide an optional argument:
 
 ## Step 1: Read Task Data
 
+Before accessing any files, resolve paths:
+
+```bash
+eval "$(bash "${CLAUDE_PLUGIN_ROOT}/scripts/resolve-paths.sh")"
+```
+
 ### For a specific spec
 
-1. Read `.claude/tasks/index.json` to find the epic entry matching the provided spec ID
+1. Read the tasks index (`$TASKS_INDEX`) to find the epic entry matching the provided spec ID
 2. If the spec ID is not found, report: `Spec {ID} not found in task index. Available specs: [list]`
-3. Read `.claude/tasks/{path}/state.json` for the matching epic
+3. Read `$TASKS_DIR/{path}/state.json` for the matching epic
 
 ### For all tasks
 
-1. Read `.claude/tasks/index.json`
+1. Read the tasks index (`$TASKS_INDEX`)
 2. For each epic, read its `state.json`
-3. If standalone tasks exist, read `.claude/tasks/standalone/state.json`
+3. If standalone tasks exist, read `$TASKS_DIR/standalone/state.json`
 
-If `.claude/tasks/index.json` does not exist:
+If `$TASKS_INDEX` does not exist:
 
 ```
 No tasks found. Use /spec to create a specification or /new-task to create a standalone task.

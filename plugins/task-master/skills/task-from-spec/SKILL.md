@@ -171,15 +171,19 @@ Create the state file. **All tasks in the state file MUST have complexity ≤ 3*
 
 ### Step 5: Create Task Directory
 
-Create the directory: `.claude/tasks/SPEC-NNN-slug/`
+```bash
+eval "$(bash "${CLAUDE_PLUGIN_ROOT}/scripts/resolve-paths.sh")"
+```
 
-Use the same slug from the spec directory name. If the spec directory is `SPEC-003-user-authentication`, the task directory is `.claude/tasks/SPEC-003-user-authentication/`.
+Create the directory: `$TASKS_DIR/SPEC-NNN-slug/`
+
+Use the same slug from the spec directory name. If the spec directory is `SPEC-003-user-authentication`, the task directory is `$TASKS_DIR/SPEC-003-user-authentication/`.
 
 Write `state.json` to this directory.
 
 ### Step 6: Generate TODOs.md
 
-Create a human-readable task overview in `.claude/tasks/SPEC-NNN-slug/TODOs.md`:
+Create a human-readable task overview in `$TASKS_DIR/SPEC-NNN-slug/TODOs.md`:
 
 ```markdown
 # SPEC-NNN: Spec Title
@@ -248,7 +252,7 @@ Begin with **T-001** (complexity: 2) - it has no dependencies and unblocks 2 oth
 
 ### Step 7: Update tasks/index.json
 
-**Use the `index-sync` skill** to update BOTH `.claude/tasks/index.json` and `.claude/specs/index.json` atomically.  NEVER write one index alone.
+**Use the `index-sync` skill** to update BOTH `$TASKS_INDEX` and `$SPECS_INDEX` atomically.  NEVER write one index alone.
 
 Call index-sync with:
 - `specId`: the spec ID (from metadata.json)
@@ -302,9 +306,9 @@ Tasks generated successfully from SPEC-003!
     No tasks require further splitting  ✓
 
   Files created:
-    .claude/tasks/SPEC-003-user-authentication/state.json
-    .claude/tasks/SPEC-003-user-authentication/TODOs.md
-    .claude/tasks/index.json (updated)
+    <tasks-dir>/SPEC-003-user-authentication/state.json
+    <tasks-dir>/SPEC-003-user-authentication/TODOs.md
+    <tasks-dir>/index.json (updated)
 
   Suggested first task:
     T-001 (complexity: 1) - Create authentication Zod schemas
@@ -366,7 +370,7 @@ The spec provides the acceptance criteria (SDD). Each acceptance criterion trans
 - **Metadata file not found**: Try to infer metadata from spec.md frontmatter, warn the user
 - **Empty spec**: Report that the spec has insufficient content and suggest reviewing it
 - **Circular dependencies detected**: Auto-fix using dependency-grapher suggestions and report what was changed
-- **`.claude/tasks/` directory doesn't exist**: Create it
+- **The resolved tasks directory (`$TASKS_DIR`) doesn't exist**: Create it
 - **Re-generating tasks for existing spec**: Warn user that existing state.json will be overwritten, ask for confirmation
 
 ---

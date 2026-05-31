@@ -114,7 +114,7 @@ Before concluding the questioning phase, explore the actual codebase to inform y
 
 ### 0e. Overlap Pre-Check (Run During Step 0, Not After)
 
-Do NOT wait for Step 1 to check overlaps. During the questioning phase, scan `.claude/specs/index.json` and `.claude/tasks/index.json` for any spec or task that could intersect with the requirement. If overlaps are found, present them to the user as part of the questioning phase so the scope can be adjusted before any spec is written. This prevents writing a spec that duplicates existing work.
+Do NOT wait for Step 1 to check overlaps. During the questioning phase, scan the resolved specs index (`$SPECS_INDEX`) and tasks index (`$TASKS_INDEX`) for any spec or task that could intersect with the requirement. If overlaps are found, present them to the user as part of the questioning phase so the scope can be adjusted before any spec is written. This prevents writing a spec that duplicates existing work.
 
 ### 0f. Get Plan Approval
 
@@ -137,18 +137,22 @@ Before creating a new spec, check for overlaps with existing specifications and 
 
 ### 1a. Read existing indexes
 
+```bash
+eval "$(bash "${CLAUDE_PLUGIN_ROOT}/scripts/resolve-paths.sh")"
+```
+
 Read the following files (they may not exist yet -- handle gracefully):
 
-- `.claude/specs/index.json` -- contains an array of existing spec metadata entries
-- `.claude/tasks/index.json` -- contains the global task index with epics and standalone tasks
+- `$SPECS_INDEX` -- contains an array of existing spec metadata entries
+- `$TASKS_INDEX` -- contains the global task index with epics and standalone tasks
 
 If neither file exists, skip overlap analysis and proceed to Step 2.
 
 ### 1b. Scan for overlaps
 
-For each existing spec entry in `specs/index.json`:
+For each existing spec entry in the resolved specs index:
 
-- Read its `metadata.json` from `.claude/specs/SPEC-NNN-slug/metadata.json`
+- Read its `metadata.json` from `$SPECS_DIR/SPEC-NNN-slug/metadata.json`
 - Compare the `title`, `tags`, and `type` fields against the new `REQUIREMENT`
 - Look for semantic overlap: similar goals, same affected components, overlapping user stories
 
@@ -256,7 +260,7 @@ Run the skill's **Allocate** flow. It:
    `spec-registry/<project>` registry. Engram is best-effort — if it is unavailable the
    skill warns and proceeds on the git+index scan alone. It NEVER blocks spec creation.
 3. Returns the zero-padded `SPEC-NNN` number and the directory path
-   `.claude/specs/SPEC-NNN-<slug>/`.
+   `<specs-dir>/SPEC-NNN-<slug>/` (resolved via `scripts/resolve-paths.sh`).
 
 Generate the slug from the title (lowercase, hyphens, max 50 chars). ONLY create the
 spec directory after the skill returns the number.
@@ -351,7 +355,7 @@ After user approval:
 ### 4a. Create directory structure
 
 ```
-.claude/specs/SPEC-NNN-slug/
+<specs-dir>/SPEC-NNN-slug/
   spec.md        -- The specification document
   metadata.json  -- Machine-readable metadata
 ```
@@ -383,7 +387,7 @@ Tags should be derived from the spec content: affected components, technologies,
 
 ### 4d. Update specs index
 
-Create or update `.claude/specs/index.json` to include the new spec entry. If the file does not exist, create it as an array. Add an entry with `specId`, `title`, `type`, `complexity`, `status`, and `path`.
+Create or update `$SPECS_INDEX` to include the new spec entry. If the file does not exist, create it as an array. Add an entry with `specId`, `title`, `type`, `complexity`, `status`, and `path`.
 
 **Always use the `index-sync` skill for this write** so that `tasks/index.json` is updated in the same atomic operation.  NEVER write one index alone.
 
@@ -412,11 +416,17 @@ The skill should:
 
 ### 5a. Create task state file
 
-Write the state to `.claude/tasks/SPEC-NNN-slug/state.json` following the state schema.
+Resolve paths first (each bash block is its own shell, so re-run the resolver here):
+
+```bash
+eval "$(bash "${CLAUDE_PLUGIN_ROOT}/scripts/resolve-paths.sh")"
+```
+
+Write the state to `$TASKS_DIR/SPEC-NNN-slug/state.json` following the state schema.
 
 ### 5b. Generate TODOs.md
 
-Generate `.claude/tasks/SPEC-NNN-slug/TODOs.md` as a human-readable markdown checklist grouped by phase:
+Generate `$TASKS_DIR/SPEC-NNN-slug/TODOs.md` as a human-readable markdown checklist grouped by phase:
 
 ```markdown
 # TODOs: [Spec Title]
@@ -442,7 +452,7 @@ Spec: SPEC-NNN | Status: in-progress | Progress: 0/N
 
 ### 5c. Update task index
 
-Update both `.claude/tasks/index.json` **and** `.claude/specs/index.json` using the **index-sync skill**.  NEVER write one index alone.
+Update both `$TASKS_INDEX` **and** `$SPECS_INDEX` using the **index-sync skill**.  NEVER write one index alone.
 
 Use index-sync with:
 - `specId`: the newly generated SPEC-NNN
@@ -491,10 +501,10 @@ Specification created successfully!
 
   Spec: SPEC-NNN "[Title]"
   Type: feature | Complexity: medium
-  Location: .claude/specs/SPEC-NNN-slug/
+  Location: <specs-dir>/SPEC-NNN-slug/
 
   Tasks generated: N tasks across M phases
-  Location: .claude/tasks/SPEC-NNN-slug/
+  Location: <tasks-dir>/SPEC-NNN-slug/
 
   Next step: Run /next-task to start working on the first available task.
   Remember: Update task state after completing each task!

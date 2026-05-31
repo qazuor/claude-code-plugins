@@ -20,8 +20,7 @@ You are the task dashboard renderer for the task-master plugin. Your job is to r
 Before reading epic state files, verify that the two indexes agree on every spec's status.  This catches drift that accumulated from previous sessions where one index was written without the other.
 
 ```bash
-SPECS_INDEX=".claude/specs/index.json"
-TASKS_INDEX=".claude/tasks/index.json"
+eval "$(bash "${CLAUDE_PLUGIN_ROOT}/scripts/resolve-paths.sh")"
 
 # Only run the check when both files exist
 if [ -f "$SPECS_INDEX" ] && [ -f "$TASKS_INDEX" ]; then
@@ -68,7 +67,7 @@ This is a read-only warning — the dashboard does NOT auto-repair drift.  It on
 
 ### Step 1: Read the global index
 
-Read `.claude/tasks/index.json`. This file follows the schema at `templates/index-schema.json` and contains:
+Read the tasks index (resolved via `scripts/resolve-paths.sh` as `$TASKS_INDEX`). This file follows the schema at `templates/index-schema.json` and contains:
 
 - `epics`: array of epic entries with `specId`, `title`, `status`, `progress`, and `path`
 - `standalone`: object with `path`, `total`, and `completed`
@@ -83,11 +82,11 @@ And stop.
 
 ### Step 2: Read epic state files
 
-For each epic in the `epics` array, read its `state.json` from `.claude/tasks/{path}/state.json`. Parse the tasks array and summary object.
+For each epic in the `epics` array, read its `state.json` from `$TASKS_DIR/{path}/state.json`. Parse the tasks array and summary object.
 
 ### Step 3: Read standalone state
 
-If `standalone.total > 0`, read `.claude/tasks/{standalone.path}/state.json` to get standalone task details.
+If `standalone.total > 0`, read `$TASKS_DIR/{standalone.path}/state.json` to get standalone task details.
 
 ## Dashboard Rendering
 

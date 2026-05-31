@@ -1,19 +1,19 @@
 ---
 name: index-sync
-description: Atomically updates both .claude/specs/index.json and .claude/tasks/index.json for a given spec, detects and repairs pre-existing drift between them, and enforces write invariants before any mutation
+description: Atomically updates both the specs index and the tasks index for a given spec, detects and repairs pre-existing drift between them, and enforces write invariants before any mutation
 ---
 
 # Index Sync
 
 ## Purpose
 
-Ensure `.claude/specs/index.json` and `.claude/tasks/index.json` remain consistent at all times.
+Ensure the specs index and the tasks index (resolved via `scripts/resolve-paths.sh`) remain consistent at all times.
 Every status/progress write to either index MUST go through this skill — never write one index alone.
 
 ## Why Two Indexes Exist
 
-- `specs/index.json` — source of truth for spec lifecycle status (`draft`, `approved`, `in-progress`, `completed`, `cancelled`, `reserved`, `merged`, `obsolete`)
-- `tasks/index.json` — mirrors spec status and carries task-level progress (`progress`, task counts).  Its vocabulary is `pending`, `in-progress`, `completed`, `cancelled`, `draft`, `reserved`, `merged`, `obsolete` — the same as the specs index except `approved` (which maps to `pending`) and the extra `pending` value.
+- `specs/index.json` (resolved as `$SPECS_INDEX`) — source of truth for spec lifecycle status (`draft`, `approved`, `in-progress`, `completed`, `cancelled`, `reserved`, `merged`, `obsolete`)
+- `tasks/index.json` (resolved as `$TASKS_INDEX`) — mirrors spec status and carries task-level progress (`progress`, task counts).  Its vocabulary is `pending`, `in-progress`, `completed`, `cancelled`, `draft`, `reserved`, `merged`, `obsolete` — the same as the specs index except `approved` (which maps to `pending`) and the extra `pending` value.
 
 They drift when one is written without the other.  This skill closes that gap.
 
@@ -24,8 +24,8 @@ You will receive:
 1. **specId** — e.g. `"SPEC-001"` (required)
 2. **newStatus** — the target status for both indexes.  Must be one of: `pending`, `in-progress`, `completed`, `cancelled`, `draft`, `reserved`, `merged`, `obsolete` (tasks index) / `draft`, `approved`, `in-progress`, `completed`, `cancelled`, `reserved`, `merged`, `obsolete` (specs index).  Pass `null` to skip status update (progress-only write).
 3. **newProgress** — string in `"N/M"` format, e.g. `"4/10"` (optional — omit or pass `null` to skip progress update)
-4. **specsIndexPath** — absolute path to `.claude/specs/index.json` (default: `.claude/specs/index.json`)
-5. **tasksIndexPath** — absolute path to `.claude/tasks/index.json` (default: `.claude/tasks/index.json`)
+4. **specsIndexPath** — absolute path to the specs index (resolved via `scripts/resolve-paths.sh` as `$SPECS_INDEX`; default: `<repo-root>/.claude/specs/index.json`)
+5. **tasksIndexPath** — absolute path to the tasks index (resolved via `scripts/resolve-paths.sh` as `$TASKS_INDEX`; default: `<repo-root>/.claude/tasks/index.json`)
 
 ## Process
 
@@ -69,10 +69,11 @@ echo "$newProgress" | jq -Rr '
 
 #### 0c. Spec directory existence check
 
-When writing a new epic entry, confirm `.claude/specs/{slug}/` exists on disk.  Skip this check for updates to existing entries.
+When writing a new epic entry, confirm `$SPECS_DIR/{slug}/` exists on disk.  Skip this check for updates to existing entries.
 
 ```bash
-SPEC_DIR=".claude/specs/${specSlug}"
+eval "$(bash "${CLAUDE_PLUGIN_ROOT}/scripts/resolve-paths.sh")"
+SPEC_DIR="$SPECS_DIR/${specSlug}"
 [ -d "$SPEC_DIR" ] || { echo "ABORT: spec directory '$SPEC_DIR' does not exist — cannot create index entry for a non-existent spec"; exit 1; }
 ```
 
@@ -85,8 +86,9 @@ When adding a new entry, verify all required fields are provided: `specId`, `tit
 Read both index files and compare the entry for `specId`.  Report any disagreements BEFORE applying the new write.
 
 ```bash
-SPECS_INDEX=".claude/specs/index.json"
-TASKS_INDEX=".claude/tasks/index.json"
+# Resolve paths in THIS block — each bash block runs in its own shell, so the
+# eval must be repeated wherever the resolved vars are used.
+eval "$(bash "${CLAUDE_PLUGIN_ROOT}/scripts/resolve-paths.sh")"
 
 # Extract current values from both indexes (empty string if entry not found)
 SPEC_STATUS=$(jq -r --arg id "$specId" '
@@ -138,11 +140,12 @@ Every other value is written as-is to both indexes (identity mapping).
 Use a single atomic `jq` rewrite (read → transform → write back).
 
 ```bash
+# Resolve paths in THIS block (own shell — repeat the eval per block).
+eval "$(bash "${CLAUDE_PLUGIN_ROOT}/scripts/resolve-paths.sh")"
+
 # Wrap in flock to prevent concurrent writes (see Concurrency section below)
 (
   flock -w 10 200 || { echo "ABORT: index busy, another session holds the lock — retry in a moment"; exit 1; }
-
-  SPECS_INDEX=".claude/specs/index.json"
 
   # Build the patch object (only include fields that are being updated)
   jq_status_patch=""
@@ -158,20 +161,22 @@ Use a single atomic `jq` rewrite (read → transform → write back).
      )
      ' "$SPECS_INDEX" > "${SPECS_INDEX}.tmp" && mv "${SPECS_INDEX}.tmp" "$SPECS_INDEX"
 
-) 200>.claude/tasks/.index.lock
+) 200>"$LOCK"
 ```
 
-If the entry does not exist in `specs/index.json` yet (new spec creation), append it instead of updating.
+If the entry does not exist in `$SPECS_INDEX` yet (new spec creation), append it instead of updating.
 
 ### Step 4: Update tasks/index.json
 
-Apply the mapped status and/or progress to `tasks/index.json`:
+Apply the mapped status and/or progress to `$TASKS_INDEX`:
 
 ```bash
+# Resolve paths in THIS block (own shell — repeat the eval per block).
+eval "$(bash "${CLAUDE_PLUGIN_ROOT}/scripts/resolve-paths.sh")"
+
 (
   flock -w 10 200 || { echo "ABORT: index busy, another session holds the lock — retry in a moment"; exit 1; }
 
-  TASKS_INDEX=".claude/tasks/index.json"
   TASK_STATUS_VAL="$mappedTaskStatus"   # computed from Step 2 mapping
   PROGRESS_VAL="$newProgress"           # may be empty/null
 
@@ -187,7 +192,7 @@ Apply the mapped status and/or progress to `tasks/index.json`:
      )
      ' "$TASKS_INDEX" > "${TASKS_INDEX}.tmp" && mv "${TASKS_INDEX}.tmp" "$TASKS_INDEX"
 
-) 200>.claude/tasks/.index.lock
+) 200>"$LOCK"
 ```
 
 ### Step 5: Verify Write
@@ -195,6 +200,7 @@ Apply the mapped status and/or progress to `tasks/index.json`:
 After both writes complete, re-read both files and confirm the entries match expectations:
 
 ```bash
+eval "$(bash "${CLAUDE_PLUGIN_ROOT}/scripts/resolve-paths.sh")"
 FINAL_SPEC_STATUS=$(jq -r --arg id "$specId" '.specs[] | select(.specId == $id) | .status' "$SPECS_INDEX" 2>/dev/null)
 FINAL_TASK_STATUS=$(jq -r --arg id "$specId" '.epics[] | select(.specId == $id) | .status' "$TASKS_INDEX" 2>/dev/null)
 FINAL_TASK_PROGRESS=$(jq -r --arg id "$specId" '.epics[] | select(.specId == $id) | .progress' "$TASKS_INDEX" 2>/dev/null)
@@ -206,8 +212,8 @@ If any value does not match what was written, report an error.
 
 ```
 Index sync complete for SPEC-NNN
-  specs/index.json  status: <new-spec-status>
-  tasks/index.json  status: <new-task-status>  progress: <new-progress>
+  specs index  status: <new-spec-status>
+  tasks index  status: <new-task-status>  progress: <new-progress>
   [drift reconciled: <old-spec-status> → <new-spec-status>]   (only if drift was found in Step 1)
 ```
 
@@ -220,10 +226,10 @@ ALL index mutations — both in this skill and in every caller — MUST be wrapp
   flock -w 10 200 || { echo "index busy, another session holds the lock — retry in a moment"; exit 1; }
   # ALL reads + transforms + writes happen INSIDE this block
   # Never split the read and the write outside the lock
-) 200>.claude/tasks/.index.lock
+) 200>"$LOCK"
 ```
 
-- **Lock file**: `.claude/tasks/.index.lock`  (create on first use; do NOT commit it — add to `.gitignore` if one exists)
+- **Lock file**: `$LOCK` (resolved via `scripts/resolve-paths.sh`; typically `<tasks-dir>/.index.lock`; create on first use; do NOT commit it — add to `.gitignore` if one exists)
 - **Timeout**: 10 seconds (`-w 10`).  If another session holds the lock for longer than 10 s, it is a bug — abort rather than deadlock.
 - **Auto-release**: `flock` releases automatically when the subshell exits, even on crash.  No stale-lock handling needed.
 - **Single block**: Read, transform, and write MUST all happen inside one `flock` block.  Never read outside and write inside — that leaves a TOCTOU window.
@@ -295,4 +301,4 @@ Every place that writes a status or progress to either index MUST call this skil
 - **Directories**: Create with `mkdir -p` and check with `[ -d "$DIR" ]`
 - **Errors**: ALWAYS suppress with `2>/dev/null` or `|| true` when files/dirs might not exist.
 - **No visible errors**: The user should NEVER see "Exit code" errors in the output.
-- **Lock**: ALL index/state mutations MUST happen inside a single `flock` block on `.claude/tasks/.index.lock`.
+- **Lock**: ALL index/state mutations MUST happen inside a single `flock` block on `$LOCK` (resolved via `scripts/resolve-paths.sh`).

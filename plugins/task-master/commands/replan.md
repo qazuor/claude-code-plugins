@@ -22,7 +22,7 @@ The user may provide an optional argument:
 
 If no argument is provided:
 
-1. Read `.claude/tasks/index.json`
+1. Read the tasks index (resolved via `scripts/resolve-paths.sh` as `$TASKS_INDEX`)
 2. List available epics and standalone group
 3. Ask the user which one to re-plan
 
@@ -347,11 +347,13 @@ Rules for TODOs.md:
 
 ### 3d. Update task index
 
-Use the **index-sync skill** to update both `.claude/tasks/index.json` and `.claude/specs/index.json` atomically.  NEVER write one index alone.
+Use the **index-sync skill** to update both the tasks index and the specs index (resolved via `scripts/resolve-paths.sh`) atomically.  NEVER write one index alone.
 
 Wrap the state.json write AND the index-sync call in a single `flock` block:
 
 ```bash
+eval "$(bash "${CLAUDE_PLUGIN_ROOT}/scripts/resolve-paths.sh")"
+
 (
   flock -w 10 200 || { echo "index busy, another session holds the lock — retry in a moment"; exit 1; }
 
@@ -362,7 +364,7 @@ Wrap the state.json write AND the index-sync call in a single `flock` block:
   # so pass the already-acquired fd or call its jq writes directly here)
   # Provide: specId, newStatus (if status changed), newProgress ("completed/total")
 
-) 200>.claude/tasks/.index.lock
+) 200>"$LOCK"
 ```
 
 Inputs to index-sync:
@@ -401,9 +403,9 @@ Changes applied:
   SUMMARY AFTER:   11 tasks | 3 done | 1 wip | 4 pending | 3 blocked
 
   Files updated:
-    .claude/tasks/SPEC-001-user-auth/state.json
-    .claude/tasks/SPEC-001-user-auth/TODOs.md
-    .claude/tasks/index.json
+    <tasks-dir>/SPEC-001-user-auth/state.json
+    <tasks-dir>/SPEC-001-user-auth/TODOs.md
+    <tasks-dir>/index.json
 ```
 
 ## Safety Rules
@@ -431,4 +433,4 @@ Changes applied:
 - **Errors**: ALWAYS suppress with `2>/dev/null` or `|| true` when files/dirs might not exist.
 - **No visible errors**: The user should NEVER see "Exit code" errors in the output.
 - **Index writes**: ALWAYS update both indexes via the `index-sync` skill (Step 3d).  NEVER write one index alone.
-- **Locking**: ALL index/state mutations in Step 3 MUST happen inside a single `flock` block on `.claude/tasks/.index.lock` with a 10-second timeout.  This prevents concurrent replan sessions from corrupting the indexes.
+- **Locking**: ALL index/state mutations in Step 3 MUST happen inside a single `flock` block on `$LOCK` (resolved via `scripts/resolve-paths.sh`) with a 10-second timeout.  This prevents concurrent replan sessions from corrupting the indexes.
