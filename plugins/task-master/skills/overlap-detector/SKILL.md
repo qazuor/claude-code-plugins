@@ -30,10 +30,10 @@ You will receive:
 ### Step 2: Filter Active Specs
 
 From the specs index, filter to only consider specs with active statuses:
-- Include: `draft`, `approved`, `in-progress`
-- Exclude: `completed`, `cancelled`
+- Include: `draft`, `approved`, `in-progress`, `reserved`
+- Exclude: `completed`, `cancelled`, `merged`, `obsolete`
 
-If all specs are completed or cancelled, report "All existing specs are closed. No active overlap possible." and provide the list of closed specs for reference.
+If all specs are closed (`completed`, `cancelled`, `merged`, or `obsolete`), report "All existing specs are closed. No active overlap possible." and provide the list of closed specs for reference.
 
 ### Step 3: Analyze Each Active Spec
 

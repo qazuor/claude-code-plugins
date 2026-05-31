@@ -230,7 +230,7 @@ Call index-sync with:
 The index-sync skill will:
 1. Run pre-write validation (status enum check, spec directory existence check)
 2. Append the new entry to `specs/index.json` if it does not exist
-3. Append a corresponding `pending` entry to `tasks/index.json` if it does not exist
+3. Append a corresponding `draft` entry to `tasks/index.json` if it does not exist (the mapping is identity except `approved`→`pending`, so a `draft` spec yields a `draft` epic)
 4. Report any drift it finds on existing entries before writing
 
 Expected `specs/index.json` structure after the write:

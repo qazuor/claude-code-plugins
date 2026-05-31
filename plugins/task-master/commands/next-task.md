@@ -186,14 +186,14 @@ In the appropriate `state.json` file, wrap ALL reads and writes in a single `flo
 
 Use the **index-sync skill** to update both `.claude/specs/index.json` and `.claude/tasks/index.json` atomically.  NEVER write one index alone.
 
-- For epic tasks: if the epic's current status is `"pending"`, pass `newStatus: "in-progress"` to index-sync.
+- For epic tasks: if the epic's current status is a not-yet-started state (`"pending"`, `"draft"`, or `"reserved"`), pass `newStatus: "in-progress"` to index-sync.  (Epics now mirror the spec status, so a freshly created epic is `"draft"`, not `"pending"` — starting its first task must move it to `"in-progress"` from any of these three states, or it would stay stuck.)
 - The index-sync skill wraps its writes in the same `flock` block — no double-locking needed.
 - For standalone tasks: no index status update needed (counts live in state.json), but still confirm the tasks/index.json standalone counts remain accurate.
 
 ```
 Call index-sync with:
   specId:       <parent specId from index.json>
-  newStatus:    "in-progress"   (only if current epic status is "pending")
+  newStatus:    "in-progress"   (only if current epic status is "pending", "draft", or "reserved")
   newProgress:  null            (progress is derived from state.json, not set here)
 ```
 

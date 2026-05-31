@@ -512,7 +512,7 @@ Update both `.claude/tasks/index.json` **and** `.claude/specs/index.json` using 
 
 Use index-sync with:
 - `specId`: the newly generated SPEC-NNN
-- `newStatus`: `"draft"` (maps to `"pending"` in tasks index)
+- `newStatus`: `"draft"` (mirrored as `"draft"` in tasks index — the mapping is identity except `approved`→`pending`)
 - `newProgress`: `"0/N"` where N is the total number of generated tasks
 
 If the file does not exist, create it following the index schema at `templates/index-schema.json`:
@@ -524,7 +524,7 @@ If the file does not exist, create it following the index schema at `templates/i
     {
       "specId": "SPEC-NNN",
       "title": "Spec Title",
-      "status": "pending",
+      "status": "draft",
       "progress": "0/N",
       "path": "SPEC-NNN-slug"
     }

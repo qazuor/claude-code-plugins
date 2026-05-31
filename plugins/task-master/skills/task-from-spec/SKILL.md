@@ -252,7 +252,7 @@ Begin with **T-001** (complexity: 2) - it has no dependencies and unblocks 2 oth
 
 Call index-sync with:
 - `specId`: the spec ID (from metadata.json)
-- `newStatus`: `"pending"` (tasks just generated, none started yet)
+- `newStatus`: the spec's **current** status read from `metadata.json` (do NOT hardcode).  The mapping is identity except `approved`→`pending`, so a `draft` spec yields a `draft` epic, an `approved` spec yields a `pending` epic, etc.  Passing the real spec status is what keeps the two indexes drift-free.
 - `newProgress`: `"0/N"` where N is the total number of generated tasks
 
 The index-sync skill will:
@@ -261,7 +261,7 @@ The index-sync skill will:
 3. Write `tasks/index.json` with the new (or updated) epic entry
 4. Confirm the matching `specs/index.json` entry is consistent
 
-Expected `tasks/index.json` epic entry after the write:
+Expected `tasks/index.json` epic entry after the write (this example assumes the spec was `approved`, which maps to `pending`; a `draft` spec would show `"status": "draft"`):
 
 ```json
 {

@@ -12,8 +12,8 @@ Every status/progress write to either index MUST go through this skill — never
 
 ## Why Two Indexes Exist
 
-- `specs/index.json` — source of truth for spec lifecycle status (`draft`, `approved`, `in-progress`, `completed`, `cancelled`)
-- `tasks/index.json` — mirrors spec status and carries task-level progress (`progress`, task counts)
+- `specs/index.json` — source of truth for spec lifecycle status (`draft`, `approved`, `in-progress`, `completed`, `cancelled`, `reserved`, `merged`, `obsolete`)
+- `tasks/index.json` — mirrors spec status and carries task-level progress (`progress`, task counts).  Its vocabulary is `pending`, `in-progress`, `completed`, `cancelled`, `draft`, `reserved`, `merged`, `obsolete` — the same as the specs index except `approved` (which maps to `pending`) and the extra `pending` value.
 
 They drift when one is written without the other.  This skill closes that gap.
 
@@ -22,7 +22,7 @@ They drift when one is written without the other.  This skill closes that gap.
 You will receive:
 
 1. **specId** — e.g. `"SPEC-001"` (required)
-2. **newStatus** — the target status for both indexes.  Must be one of: `pending`, `in-progress`, `completed`, `cancelled` (tasks index) / `draft`, `approved`, `in-progress`, `completed`, `cancelled` (specs index).  Pass `null` to skip status update (progress-only write).
+2. **newStatus** — the target status for both indexes.  Must be one of: `pending`, `in-progress`, `completed`, `cancelled`, `draft`, `reserved`, `merged`, `obsolete` (tasks index) / `draft`, `approved`, `in-progress`, `completed`, `cancelled`, `reserved`, `merged`, `obsolete` (specs index).  Pass `null` to skip status update (progress-only write).
 3. **newProgress** — string in `"N/M"` format, e.g. `"4/10"` (optional — omit or pass `null` to skip progress update)
 4. **specsIndexPath** — absolute path to `.claude/specs/index.json` (default: `.claude/specs/index.json`)
 5. **tasksIndexPath** — absolute path to `.claude/tasks/index.json` (default: `.claude/tasks/index.json`)
@@ -39,13 +39,16 @@ If `newStatus` is provided, verify it is one of the allowed values:
 
 ```bash
 # Allowed values for tasks/index.json epics
-TASK_STATUSES="pending in-progress completed cancelled"
+TASK_STATUSES="pending in-progress completed cancelled draft reserved merged obsolete"
 # Allowed values for specs/index.json
-SPEC_STATUSES="draft approved in-progress completed cancelled"
+SPEC_STATUSES="draft approved in-progress completed cancelled reserved merged obsolete"
 
-# Quick check (bash):
-echo "$TASK_STATUSES" | grep -qw "$newStatus" || { echo "ABORT: invalid task status '$newStatus'"; exit 1; }
-echo "$SPEC_STATUSES" | grep -qw "$newStatus" || { echo "ABORT: invalid spec status '$newStatus'"; exit 1; }
+# newStatus must be valid in AT LEAST ONE vocabulary.  `pending` is task-only
+# and `approved` is spec-only, so requiring membership in BOTH would reject those
+# legitimate values.  Accept if it appears in either set.
+if ! echo "$TASK_STATUSES $SPEC_STATUSES" | grep -qw "$newStatus"; then
+  echo "ABORT: invalid status '$newStatus' — not in tasks ($TASK_STATUSES) or specs ($SPEC_STATUSES) vocabulary"; exit 1
+fi
 ```
 
 #### 0b. Progress format check
@@ -112,18 +115,23 @@ Trust `specs/index.json` as authoritative on status disagreements.  The new writ
 
 ### Step 2: Compute the Status Mapping
 
-The two indexes use slightly different status vocabularies.  Map them:
+The two indexes share almost the same vocabulary.  The mapping is **identity** —
+the tasks index mirrors the spec status exactly — with a **single exception**:
+`approved` (a specs-only value) maps to `pending` in the tasks index.
 
 | Canonical (specs index)  | Tasks index equivalent |
 |--------------------------|------------------------|
-| `draft`                  | `pending`              |
+| `draft`                  | `draft`                |
 | `approved`               | `pending`              |
+| `reserved`               | `reserved`             |
 | `in-progress`            | `in-progress`          |
 | `completed`              | `completed`            |
+| `merged`                 | `merged`               |
 | `cancelled`              | `cancelled`            |
+| `obsolete`               | `obsolete`             |
 
-When `newStatus` is `draft` or `approved`, write `pending` into `tasks/index.json`.
-All other values are written as-is to both indexes.
+When `newStatus` is `approved`, write `pending` into `tasks/index.json`.
+Every other value is written as-is to both indexes (identity mapping).
 
 ### Step 3: Update specs/index.json
 
@@ -227,7 +235,7 @@ These can be copy-pasted wherever a write is about to happen:
 ### Status enum check (jq)
 
 ```bash
-VALID_TASK_STATUSES='["pending","in-progress","completed","cancelled"]'
+VALID_TASK_STATUSES='["pending","in-progress","completed","cancelled","draft","reserved","merged","obsolete"]'
 echo "$status" | jq -r --argjson valid "$VALID_TASK_STATUSES" '
   . as $s | $valid | map(select(. == $s)) | length > 0 |
   if . then "ok" else error("invalid status: \($s)") end

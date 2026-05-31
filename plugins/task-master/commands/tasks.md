@@ -26,7 +26,9 @@ TASKS_INDEX=".claude/tasks/index.json"
 # Only run the check when both files exist
 if [ -f "$SPECS_INDEX" ] && [ -f "$TASKS_INDEX" ]; then
   # For each specId present in tasks/index.json, compare its status against specs/index.json
-  # Status mapping: specs "draft"|"approved" => tasks "pending"; all others match directly
+  # Status mapping is IDENTITY (tasks mirrors spec status exactly), with a single
+  # exception: specs "approved" => tasks "pending".  This MUST stay in sync with the
+  # mapping table in skills/index-sync/SKILL.md Step 2.
   jq -r --slurpfile specs "$SPECS_INDEX" '
     .epics[] |
     .specId as $id |
@@ -35,8 +37,8 @@ if [ -f "$SPECS_INDEX" ] && [ -f "$TASKS_INDEX" ]; then
     if $spec_entry == null then empty  # spec not in specs index yet — skip
     else
       ($spec_entry.status) as $spec_status |
-      # Compute expected tasks status from spec status
-      (if $spec_status == "draft" or $spec_status == "approved" then "pending" else $spec_status end) as $expected_task_status |
+      # Compute expected tasks status from spec status (identity except approved→pending)
+      (if $spec_status == "approved" then "pending" else $spec_status end) as $expected_task_status |
       if $task_status != $expected_task_status
       then "DRIFT|\($id)|\($spec_status)|\($task_status)"
       else empty
@@ -162,7 +164,7 @@ For each epic in the index:
 4. Show per-phase breakdown: count completed vs total for each phase that has tasks
 5. Show count of blocked tasks
 
-Sort epics: `in-progress` first, then `pending`, then `completed`.
+Sort epics by status in this order: `in-progress`, `pending`, `draft`, `reserved`, `completed`, `merged`, `obsolete`, `cancelled`.  (Active work first; terminal/archived states last.)
 
 ### STANDALONE TASKS Section
 
@@ -203,8 +205,8 @@ Calculate across ALL tasks (epics + standalone):
 
 - **Total tasks**: sum of all tasks
 - **By status**: count and percentage for each status
-- **Avg complexity (remaining)**: average complexity of non-completed, non-cancelled tasks
-- **Epics**: count active (in-progress + pending) vs completed
+- **Avg complexity (remaining)**: average complexity of tasks not in a terminal state (`completed`, `cancelled`, `merged`, `obsolete`)
+- **Epics**: count active (`in-progress` + `pending` + `draft`) vs terminal (`completed` + `merged` + `obsolete` + `cancelled`)
 
 ## Formatting Rules
 
