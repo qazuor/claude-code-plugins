@@ -74,10 +74,25 @@ If no config file exists, auto-detect the project's tooling:
    - Check for `vitest.config.*` -> `npx vitest run`
    - Check for `jest.config.*` -> `npx jest`
 
-4. **Monorepo detection:**
-   - If `turbo.json` exists, consider using `turbo run lint/typecheck/test`
-   - If the task affects a specific package, scope the commands to that package
-   - Example: If task files are in `packages/core/`, run `cd packages/core && pnpm run test`
+4. **Monorepo detection (MANDATORY scoping rules):**
+
+   Running the full test suite in a large monorepo spawns unlimited parallel workers across every package simultaneously. On a developer machine this exhausts memory and CPU, causing hangs or crashes. Scoped execution is NOT optional — it is the default.
+
+   **Rule A — scoped run (preferred):**
+   - If `turbo.json` exists AND the task's changed files can be localized to a single package, you MUST scope the test run to that package. NEVER run the full suite when a scoped command is available.
+   - Determine the package by inspecting the task's file paths: if every changed file lives under `packages/<pkg>/` or `apps/<pkg>/`, that is the target package.
+   - Run: `turbo run test --filter=<package>` (Turborepo) or `cd packages/<pkg> && pnpm run test` (direct).
+   - Example: task files all in `packages/db/` → `turbo run test --filter=@repo/db` or `cd packages/db && pnpm test`
+
+   **Rule B — concurrency-capped full run (fallback when scope cannot be determined):**
+   - Use this ONLY when changed files span multiple packages or the package boundary cannot be determined.
+   - Apply a hard concurrency cap to prevent spawning unlimited workers:
+     - **vitest**: append `--pool=forks --poolOptions.forks.maxForks=2 --reporter=dot`
+     - **jest**: append `--maxWorkers=2`
+   - The cap defaults to 2 workers and is configurable via `qualityGate.tests.maxConcurrency` in `.claude/task-master.config.json`.
+   - Example capped commands: `pnpm test -- --pool=forks --poolOptions.forks.maxForks=2 --reporter=dot` (vitest) or `pnpm test -- --maxWorkers=2` (jest)
+
+   Choosing between the rules: check `git diff --name-only HEAD` (or the task's file list) against the package directories. If all paths share a common `packages/<pkg>` or `apps/<pkg>` prefix → Rule A. Otherwise → Rule B.
 
 ### Step 3: Run Quality Checks
 
@@ -359,7 +374,8 @@ The `.claude/task-master.config.json` supports these check types:
     },
     "tests": {
       "command": "pnpm test",
-      "required": true
+      "required": true,
+      "maxConcurrency": 2
     },
     "coverage": {
       "threshold": 90,
@@ -379,6 +395,7 @@ The `.claude/task-master.config.json` supports these check types:
 - `required`: If true, this check must pass for the gate to pass. If false, it's informational only.
 - `threshold`: For coverage checks, the minimum percentage required
 - `label`: Display name for custom checks
+- `maxConcurrency`: (tests only) Maximum number of parallel test workers for the concurrency-capped fallback path (Rule B in monorepo detection). Defaults to 2. Applied as `--poolOptions.forks.maxForks=N` for vitest or `--maxWorkers=N` for jest. Has no effect when a scoped package run (Rule A) is used.
 
 If no config file exists, the three standard checks (lint, typecheck, tests) are all required by default.
 

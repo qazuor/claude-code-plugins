@@ -154,7 +154,7 @@ Work on the task following TDD methodology:
 Before marking complete, run the quality gate skill:
 - Lint check
 - Type check
-- Test suite
+- Test suite — **ALWAYS scoped to the current task's affected package(s)**. In auto-loop mode running the full suite across all packages would spawn unlimited parallel workers and can exhaust memory or crash the machine. Apply the monorepo scoping rules from the quality-gate skill: if all of this task's changed files live under a single `packages/<pkg>` or `apps/<pkg>` directory, run only that package's tests (e.g. `turbo run test --filter=<package>`). If the scope cannot be determined, run with a hard concurrency cap (`--pool=forks --poolOptions.forks.maxForks=2` for vitest or `--maxWorkers=2` for jest). Never run an uncapped full suite in auto-loop.
 
 If quality gate fails, pause the loop:
 
