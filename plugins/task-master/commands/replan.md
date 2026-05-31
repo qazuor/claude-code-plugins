@@ -149,15 +149,15 @@ Are you sure? (yes/no)
 
 ### Complexity Validation
 
-**Maximum complexity for atomic tasks is 4.** If the user sets complexity > 4:
+**Maximum complexity for atomic tasks is 3.** If the user sets complexity > 3:
 
 ```
-⚠ WARNING: Complexity {value} exceeds the maximum of 4 for atomic tasks.
+⚠ WARNING: Complexity {value} exceeds the maximum of 3 for atomic tasks.
 
-Tasks with complexity > 4 cannot be started and will be blocked by the quality gate.
+Tasks with complexity > 3 cannot be started and will be blocked by the quality gate.
 Options:
   (a) Keep complexity {value} — task will be flagged for splitting via /replan
-  (b) Set complexity to 4 — accept as-is at the ceiling
+  (b) Set complexity to 3 — accept as-is at the ceiling
   (c) Split this task now — decompose into smaller tasks (recommended)
 
 Choose an option:
@@ -248,16 +248,41 @@ If the user wants to split a task into multiple independent tasks:
 2. Transfer the original task's dependencies to the new tasks appropriately
 3. Cancel the original task (Option 2)
 4. Score the new tasks using the complexity-scorer criteria
-5. **If any new task has complexity > 4**, warn the user and offer to split further:
+5. **If any new task has complexity > 3**, warn the user and offer to split further:
    ```
-   ⚠ New task T-013 has complexity 5 (max: 4). Split further? (yes/no)
+   ⚠ New task T-013 has complexity 5 (max: 3). Split further? (yes/no)
    ```
-6. Repeat splitting until all resulting tasks have complexity ≤ 4 or the user explicitly accepts
+6. Repeat splitting until all resulting tasks have complexity ≤ 3 or the user explicitly accepts
 7. Walk the user through this process step by step
 
 ## Step 3: Apply Changes
 
 After the user chooses option (6) to finish:
+
+### 3-PRE. Progress Preservation (MANDATORY — run BEFORE any write)
+
+Before touching `state.json`, snapshot every task whose `status` is `"completed"` into an
+immutable preservation set. These records must survive the replan byte-for-byte.
+
+```bash
+# Extract completed tasks from the current state.json (inside the flock block, before any write)
+COMPLETED_SNAPSHOT=$(jq '[.tasks[] | select(.status == "completed")]' "$STATE_FILE")
+```
+
+After the new task list is computed (adds, cancels, modifications, splits), re-embed every record
+from `COMPLETED_SNAPSHOT` verbatim into the new task list. Re-embedding rules:
+
+1. Match by `id`. If a completed task ID already appears in the new task list (e.g., it was
+   inadvertently carried forward), replace it with the snapshot record.
+2. If a completed task ID does NOT appear in the new task list, insert the snapshot record as-is.
+3. **Never modify any field** of a completed task record during re-embedding — not `timestamps`,
+   not `qualityGate` results, not `subtasks`, not `commit` refs. Completed = immutable.
+4. After re-embedding, verify that `jq '[.tasks[] | select(.status == "completed")] | length'`
+   on the new state equals `COMPLETED_SNAPSHOT | length`. If the count is lower, abort and report
+   the discrepancy to the user before writing.
+
+**Completed work must survive replan byte-for-byte.** Replan reorganises pending and future work;
+it never erases what has already been done.
 
 ### 3a. Recompute summary statistics
 
@@ -322,11 +347,30 @@ Rules for TODOs.md:
 
 ### 3d. Update task index
 
-Update `.claude/tasks/index.json`:
+Use the **index-sync skill** to update both `.claude/tasks/index.json` and `.claude/specs/index.json` atomically.  NEVER write one index alone.
 
-- Update the epic's `progress` field (e.g., `"6/10"` -> `"6/11"` if a task was added)
-- Update the epic's `status` if needed
-- Update standalone counts if applicable
+Wrap the state.json write AND the index-sync call in a single `flock` block:
+
+```bash
+(
+  flock -w 10 200 || { echo "index busy, another session holds the lock — retry in a moment"; exit 1; }
+
+  # Write the updated state.json first (inside the lock)
+  jq ... "$STATE_FILE" > "${STATE_FILE}.tmp" && mv "${STATE_FILE}.tmp" "$STATE_FILE"
+
+  # Then call index-sync for both indexes (index-sync reuses the same lock file,
+  # so pass the already-acquired fd or call its jq writes directly here)
+  # Provide: specId, newStatus (if status changed), newProgress ("completed/total")
+
+) 200>.claude/tasks/.index.lock
+```
+
+Inputs to index-sync:
+- `specId`: the spec being replanned
+- `newStatus`: new epic status if it changed (e.g., tasks added that change `completed` → `in-progress`), or `null` if unchanged
+- `newProgress`: updated `"N/M"` string reflecting the new total after adds/cancels
+
+Standalone counts: if replanning the standalone group, update `standalone.total` and `standalone.completed` in `tasks/index.json` directly within the same `flock` block.
 
 ### 3e. Show diff
 
@@ -366,12 +410,16 @@ Changes applied:
 
 1. **NEVER modify completed tasks** -- they represent finished, committed work
 2. **NEVER delete task data** -- cancelled tasks remain in state with `"cancelled"` status
-3. **ALWAYS check for circular dependencies** after any dependency modification
-4. **ALWAYS update both sides** of a dependency (blockedBy AND blocks)
-5. **ALWAYS recalculate summary** after any changes
-6. **ALWAYS regenerate TODOs.md** to keep it in sync with state.json
-7. **ALWAYS show the diff** so the user can verify changes
-8. **ALWAYS ask for confirmation** before applying destructive changes (cancellation)
+3. **ALWAYS snapshot completed tasks BEFORE any write** (Step 3-PRE) and re-embed them verbatim
+   after the new plan is computed -- completed work must survive replan byte-for-byte
+4. **ALWAYS verify completed-task count** after re-embedding matches the pre-replan snapshot count
+   before writing; abort and report if any completed record went missing
+5. **ALWAYS check for circular dependencies** after any dependency modification
+6. **ALWAYS update both sides** of a dependency (blockedBy AND blocks)
+7. **ALWAYS recalculate summary** after any changes
+8. **ALWAYS regenerate TODOs.md** to keep it in sync with state.json
+9. **ALWAYS show the diff** so the user can verify changes
+10. **ALWAYS ask for confirmation** before applying destructive changes (cancellation)
 
 ---
 
@@ -382,3 +430,5 @@ Changes applied:
 - **Directories**: Create with `mkdir -p` and check with `[ -d "$DIR" ]`
 - **Errors**: ALWAYS suppress with `2>/dev/null` or `|| true` when files/dirs might not exist.
 - **No visible errors**: The user should NEVER see "Exit code" errors in the output.
+- **Index writes**: ALWAYS update both indexes via the `index-sync` skill (Step 3d).  NEVER write one index alone.
+- **Locking**: ALL index/state mutations in Step 3 MUST happen inside a single `flock` block on `.claude/tasks/.index.lock` with a 10-second timeout.  This prevents concurrent replan sessions from corrupting the indexes.

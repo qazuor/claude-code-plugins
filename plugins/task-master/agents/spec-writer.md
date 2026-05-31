@@ -102,6 +102,12 @@ Before delivering your output, verify:
 - [ ] Acceptance criteria are independently testable
 - [ ] UX edge cases are addressed
 - [ ] Scope boundaries are clear
+- [ ] **Junior-readability**: A junior developer could implement this with zero guessing. Nothing is left to free interpretation.
+- [ ] **No-ambiguity**: Every term, flow, state, and outcome is defined explicitly. There are no "it should work somehow" handwaves.
+- [ ] **Phase organization**: If tasks are suggested, they are organized in phases that follow a logical order (setup → core → integration → testing → docs → cleanup). Each phase is a natural pause point.
+- [ ] **Alternatives considered**: For every significant design decision in the functional spec, at least 2 options were evaluated and the chosen approach is explicitly justified.
+- [ ] **Acceptance criteria are measurable**: No vague criteria ("works correctly", "looks good", "is fast"). Each criterion has a clear pass/fail condition that can be automated as a test.
+- [ ] **Error states are exhaustive**: Every identified failure mode has an explicit documented outcome (what the user sees, what the system does, what is logged).
 
 ## What You Do NOT Do
 

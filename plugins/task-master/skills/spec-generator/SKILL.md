@@ -186,9 +186,54 @@ Create `.claude/specs/SPEC-NNN-slug/metadata.json` with this structure:
 - Extract architectural layers affected (e.g., `database`, `api`, `frontend`, `service`)
 - Limit to 10 tags maximum, lowercase, hyphen-separated
 
+### Step 8b: Self-Review Pass (Before Writing Any Files)
+
+Before writing `spec.md` to disk, re-read the entire generated spec content once more and apply a four-point quality gate. This is the final check before the spec becomes a committed document.
+
+**Gate 1 — Completeness:**
+- Does every section have real content, or are there placeholders and "TBD" entries that should have been resolved by this point?
+- Is the Testing Strategy section present and specific (named test files, scenarios, coverage targets)?
+- Are all edge cases and error scenarios documented with explicit expected behavior?
+
+**Gate 2 — Testability:**
+- Can every single acceptance criterion be written as an automated test with a clear pass/fail condition?
+- Flag any criterion that uses vague language ("works correctly", "is responsive", "looks right") — rewrite it with a measurable outcome.
+
+**Gate 3 — No-Ambiguity / Junior-Implementability:**
+- Read the spec as a junior developer with no prior context. Would they be able to implement it without asking any clarifying questions?
+- Is every technical decision explicit? (exact file paths, function signatures, data shapes, patterns to follow)
+- Are scope boundaries explicit — not just what is included but also what is intentionally excluded?
+
+**Gate 4 — Architectural Consistency:**
+- Does every proposed change follow the existing patterns observed in the codebase?
+- Are there any conflicts with established conventions (naming, structure, error handling, validation approach)?
+- Are all external service/library claims verified? If web search was used, are the source URLs noted in the spec?
+
+**After the self-review:**
+- Fix any issues found in Gates 1-4 before writing the file.
+- Add a `## Spec Quality Notes` section at the end of the spec listing:
+  - Anything strengthened or clarified during the self-review
+  - Any remaining open questions that MUST be resolved before implementation starts (these become blockers for task generation)
+  - External sources verified (URL + date)
+
+Only proceed to Step 9 once all four gates pass or remaining gaps are explicitly documented as open questions.
+
 ### Step 9: Update index.json
 
-Read or create `.claude/specs/index.json` with this structure:
+**Use the `index-sync` skill** to add the new spec entry to BOTH `.claude/specs/index.json` and `.claude/tasks/index.json` atomically.  NEVER write one index alone.
+
+Call index-sync with:
+- `specId`: the generated SPEC-NNN
+- `newStatus`: `"draft"`
+- `newProgress`: `null` (no tasks generated yet at this stage — `task-from-spec` will set progress in its Step 7)
+
+The index-sync skill will:
+1. Run pre-write validation (status enum check, spec directory existence check)
+2. Append the new entry to `specs/index.json` if it does not exist
+3. Append a corresponding `draft` entry to `tasks/index.json` if it does not exist (the mapping is identity except `approved`→`pending`, so a `draft` spec yields a `draft` epic)
+4. Report any drift it finds on existing entries before writing
+
+Expected `specs/index.json` structure after the write:
 
 ```json
 {
@@ -205,8 +250,6 @@ Read or create `.claude/specs/index.json` with this structure:
   ]
 }
 ```
-
-Add the new spec entry to the `specs` array and write the file back.
 
 ## Output
 
@@ -252,3 +295,14 @@ Spec generated successfully!
 - If `.claude/specs/` directory doesn't exist: Create it
 - If template files cannot be found at `${CLAUDE_PLUGIN_ROOT}/templates/`: Report the error and suggest checking plugin installation
 - If the plan content is ambiguous about complexity: Default to `medium` and note the assumption
+
+---
+
+## Implementation Rules (MUST FOLLOW)
+
+- **JSON**: Use ONLY `jq` for JSON processing. NEVER use Python or Node.js.
+- **Files**: Check existence before reading: `[ -f "$FILE" ] && jq '.' "$FILE"`
+- **Directories**: Create with `mkdir -p` and check with `[ -d "$DIR" ]`
+- **Errors**: ALWAYS suppress with `2>/dev/null` or `|| true` when files/dirs might not exist.
+- **No visible errors**: The user should NEVER see "Exit code" errors in the output.
+- **Index writes**: ALWAYS update both indexes via the `index-sync` skill (Step 9).  NEVER write one index alone.

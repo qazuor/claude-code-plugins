@@ -1,6 +1,6 @@
 ---
 name: complexity-scorer
-description: Analyzes tasks and assigns complexity scores (1-10) with a hard ceiling of 4 for atomic tasks, flagging anything above for further decomposition
+description: Analyzes tasks and assigns complexity scores (1-10) with a hard ceiling of 3 for atomic tasks, flagging anything above for further decomposition
 ---
 
 # Complexity Scorer
@@ -22,7 +22,7 @@ You will receive:
 
 ## Maximum Complexity Threshold
 
-**Hard ceiling for atomic tasks: 4.** Any task scoring above 4 MUST be decomposed further before it can be started. The scorer still calculates the real 1-10 score (useful for knowing HOW MUCH to split), but flags anything > 4 with `splitRequired: true`.
+**Hard ceiling for atomic tasks: 3.** Any task scoring above 3 MUST be decomposed further before it can be started. The scorer still calculates the real 1-10 score (useful for knowing HOW MUCH to split), but flags anything > 3 with `splitRequired: true`.
 
 ## Scoring Scale
 
@@ -30,8 +30,8 @@ You will receive:
 |-------|-------|---------|----------------|
 | 1 | Trivial | YES | Config change, single file edit, no logic changes |
 | 2 | Simple | YES | Single file, minor logic, copy existing pattern |
-| 3 | Standard | YES | 1-3 files, straightforward logic, well-established pattern |
-| 4 | Moderate | YES — **max for atomic tasks** | 2-5 files, some new patterns, following existing architecture |
+| 3 | Standard | YES — **max for atomic tasks** | 1-3 files, straightforward logic, well-established pattern |
+| 4 | Moderate | **NO — must split** | 2-5 files, some new patterns, following existing architecture |
 | 5 | Complex | **NO — must split** | 3-6 files, new patterns needed, moderate testing |
 | 6 | Complex+ | **NO — must split** | 4-8 files, new patterns, meaningful testing, edge cases |
 | 7 | High | **NO — must split** | 5-10 files, new architecture decisions, complex testing |
@@ -39,8 +39,8 @@ You will receive:
 | 9 | Very High | **NO — must split** | 8-15 files, significant new architecture, high risk |
 | 10 | Extreme | **NO — must split** | 10+ files, fundamental architecture changes, system-wide impact |
 
-**Scores 1-4:** Task is atomic and ready to execute.
-**Scores 5-10:** Task is too complex — `splitRequired: true`. Must be decomposed by the task-atomizer before it can be started.
+**Scores 1-3:** Task is atomic and ready to execute.
+**Scores 4-10:** Task is too complex — `splitRequired: true`. Must be decomposed by the task-atomizer before it can be started.
 
 ## Scoring Factors
 
@@ -208,7 +208,7 @@ For a single task, return:
   "taskId": "T-001",
   "complexity": 5,
   "splitRequired": true,
-  "justification": "Touches 4 files with moderate testing needs. Follows existing CRUD pattern but requires new validation logic for price ranges. Score exceeds threshold 4 — must be decomposed further.",
+  "justification": "Touches 4 files with moderate testing needs. Follows existing CRUD pattern but requires new validation logic for price ranges. Score exceeds threshold 3 — must be decomposed further.",
   "factors": {
     "files": 5,
     "dependencies": 3,
@@ -222,7 +222,7 @@ For a single task, return:
 }
 ```
 
-The `splitRequired` field is computed as: `complexity > 4`. When `true`, the task cannot be started and must be decomposed by the task-atomizer into smaller tasks that each score ≤ 4.
+The `splitRequired` field is computed as: `complexity > 3`. When `true`, the task cannot be started and must be decomposed by the task-atomizer into smaller tasks that each score ≤ 3.
 
 For batch scoring (multiple tasks), return an array of the above objects.
 
@@ -232,10 +232,10 @@ When scoring multiple tasks at once (e.g., all tasks from the task-atomizer), al
 
 - **Average complexity**: Mean score across all tasks
 - **Complexity distribution**: Count of tasks per score level
-- **Tasks requiring split**: All tasks with complexity > 4 (these MUST be decomposed further)
+- **Tasks requiring split**: All tasks with complexity > 3 (these MUST be decomposed further)
 - **Highest complexity tasks**: Top 3 most complex tasks (these need the most aggressive splitting)
-- **Atomic task count**: Number of tasks with complexity ≤ 4 (ready to execute)
-- **Split required count**: Number of tasks with complexity > 4 (need further decomposition)
+- **Atomic task count**: Number of tasks with complexity ≤ 3 (ready to execute)
+- **Split required count**: Number of tasks with complexity > 3 (need further decomposition)
 
 ## Context-Aware Scoring
 

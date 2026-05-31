@@ -47,7 +47,7 @@ From **metadata.json**, extract:
 
 ### Step 2: Multi-Pass Task Decomposition
 
-Use a **progressive multi-pass approach** to produce ultra-granular atomic tasks that all have complexity ≤ 4. This is more natural and produces better results than trying to atomize everything in one pass.
+Use a **progressive multi-pass approach** to produce ultra-granular atomic tasks that all have complexity ≤ 3. This is more natural and produces better results than trying to atomize everything in one pass.
 
 #### Pass 1: Macro Breakdown
 
@@ -64,7 +64,7 @@ Output: Array of high-level task objects organized by phase.
 Invoke the task-atomizer skill in **split mode** on each major task from Pass 1:
 - Decompose each major task into smaller sub-tasks
 - Assign phases, dependencies, and test requirements
-- Target complexity 3-4 per task, but some may still be 5-6
+- Target complexity 2-3 per task, but some may still be 4-5
 
 Output: Expanded array of smaller task objects.
 
@@ -72,34 +72,34 @@ Output: Expanded array of smaller task objects.
 
 Invoke the complexity-scorer on ALL tasks from Pass 2:
 - Score each task (1-10) with justification
-- Mark tasks with `splitRequired: true` when complexity > 4
+- Mark tasks with `splitRequired: true` when complexity > 3
 - Update each task's `complexity` field
 
 #### Pass 4+: Refinement Loop
 
-**While any task has complexity > 4:**
+**While any task has complexity > 3:**
 
-1. Collect all tasks with complexity > 4
+1. Collect all tasks with complexity > 3
 2. Invoke the task-atomizer on ONLY those tasks (further decomposition)
 3. Re-score the newly created sub-tasks using the complexity-scorer
 4. Replace the original high-complexity tasks with the new sub-tasks
 5. Re-assign task IDs sequentially (T-001, T-002, ...) and fix all dependency references
 6. Increment the iteration counter
 
-**Iteration safety:** Maximum 5 total passes (Pass 1 + Pass 2 + up to 3 refinement loops). If tasks still exceed complexity 4 after 5 passes:
-- Flag remaining high-complexity tasks with a warning in their description: `"⚠ COMPLEXITY {score} exceeds maximum 4. Manual review required — use /replan to split before starting."`
+**Iteration safety:** Maximum 5 total passes (Pass 1 + Pass 2 + up to 3 refinement loops). If tasks still exceed complexity 3 after 5 passes:
+- Flag remaining high-complexity tasks with a warning in their description: `"⚠ COMPLEXITY {score} exceeds maximum 3. Manual review required — use /replan to split before starting."`
 - Report them prominently in the output summary
 - These tasks will be blocked from execution by the quality-gate and next-task command
 
 #### Completion Criteria
 
 The decomposition loop is **ONLY complete** when:
-- Every task has complexity ≤ 4, OR
+- Every task has complexity ≤ 3, OR
 - Maximum iterations (5) reached and remaining tasks are flagged for manual review
 
 ### Step 3: Invoke Dependency Grapher
 
-After all tasks are at complexity ≤ 4 (or flagged), invoke the dependency-grapher skill to validate and optimize the final dependency graph.
+After all tasks are at complexity ≤ 3 (or flagged), invoke the dependency-grapher skill to validate and optimize the final dependency graph.
 
 Pass the full array of tasks with their `blockedBy` and `blocks` fields.
 
@@ -115,7 +115,7 @@ If the grapher finds issues:
 
 ### Step 4: Generate state.json
 
-Create the state file. **All tasks in the state file MUST have complexity ≤ 4** (enforced by the multi-pass decomposition in Step 2). The state-schema.json validates this constraint.
+Create the state file. **All tasks in the state file MUST have complexity ≤ 3** (enforced by the multi-pass decomposition in Step 2). The state-schema.json validates this constraint.
 
 ```json
 {
@@ -206,7 +206,7 @@ Create a human-readable task overview in `.claude/tasks/SPEC-NNN-slug/TODOs.md`:
   - Blocked by: T-001
   - Blocks: T-004
 
-- [ ] **T-003** (complexity: 4) - Task title
+- [ ] **T-003** (complexity: 3) - Task title
   - Description snippet
   - Blocked by: T-001
   - Blocks: T-004
@@ -248,29 +248,32 @@ Begin with **T-001** (complexity: 2) - it has no dependencies and unblocks 2 oth
 
 ### Step 7: Update tasks/index.json
 
-Read or create `.claude/tasks/index.json`. This file uses the index schema:
+**Use the `index-sync` skill** to update BOTH `.claude/tasks/index.json` and `.claude/specs/index.json` atomically.  NEVER write one index alone.
+
+Call index-sync with:
+- `specId`: the spec ID (from metadata.json)
+- `newStatus`: the spec's **current** status read from `metadata.json` (do NOT hardcode).  The mapping is identity except `approved`→`pending`, so a `draft` spec yields a `draft` epic, an `approved` spec yields a `pending` epic, etc.  Passing the real spec status is what keeps the two indexes drift-free.
+- `newProgress`: `"0/N"` where N is the total number of generated tasks
+
+The index-sync skill will:
+1. Run pre-write validation (status enum, progress format, spec directory existence)
+2. Detect and report any pre-existing drift between the two indexes
+3. Write `tasks/index.json` with the new (or updated) epic entry
+4. Confirm the matching `specs/index.json` entry is consistent
+
+Expected `tasks/index.json` epic entry after the write (this example assumes the spec was `approved`, which maps to `pending`; a `draft` spec would show `"status": "draft"`):
 
 ```json
 {
-  "version": "1.0",
-  "epics": [
-    {
-      "specId": "SPEC-003",
-      "title": "Spec Title",
-      "status": "pending",
-      "progress": "0/8",
-      "path": "SPEC-003-user-authentication"
-    }
-  ],
-  "standalone": {
-    "path": "standalone",
-    "total": 0,
-    "completed": 0
-  }
+  "specId": "SPEC-003",
+  "title": "Spec Title",
+  "status": "pending",
+  "progress": "0/8",
+  "path": "SPEC-003-user-authentication"
 }
 ```
 
-Add the new epic entry or update existing if re-generating.
+Add the new epic entry or update the existing one if re-generating tasks for the same spec.
 
 ## Output
 
@@ -281,13 +284,13 @@ Tasks generated successfully from SPEC-003!
 
   Spec:               SPEC-003 - User Authentication System
   Total tasks:        14
-  Average complexity: 2.8/4 (max)
-  Decomposition:     3 passes (all tasks ≤ 4 complexity)
+  Average complexity: 2.8/3 (max)
+  Decomposition:     3 passes (all tasks ≤ 3 complexity)
 
   Phase breakdown:
     Setup:        2 tasks (avg complexity: 1.5)
-    Core:         5 tasks (avg complexity: 3.2)
-    Integration:  4 tasks (avg complexity: 3.0)
+    Core:         5 tasks (avg complexity: 2.8)
+    Integration:  4 tasks (avg complexity: 2.5)
     Testing:      2 tasks (avg complexity: 2.5)
     Docs:         1 task  (avg complexity: 1.0)
 
@@ -295,7 +298,7 @@ Tasks generated successfully from SPEC-003!
   Parallel tracks:   3 identified
 
   Complexity guarantee:
-    All 14 tasks have complexity ≤ 4  ✓
+    All 14 tasks have complexity ≤ 3  ✓
     No tasks require further splitting  ✓
 
   Files created:
@@ -310,14 +313,14 @@ Tasks generated successfully from SPEC-003!
   Ready to start implementing! Use the task runner to begin with T-001.
 ```
 
-If any tasks still exceed complexity 4 after maximum iterations (5 passes):
+If any tasks still exceed complexity 3 after maximum iterations (5 passes):
 
 ```
   ⚠ Complexity warnings:
     T-009 (complexity: 5) - FLAGGED for manual review. Use /replan to split.
     T-012 (complexity: 6) - FLAGGED for manual review. Use /replan to split.
 
-  These tasks will be blocked from execution until split to complexity ≤ 4.
+  These tasks will be blocked from execution until split to complexity ≤ 3.
 ```
 
 ## Task Granularity
@@ -365,3 +368,14 @@ The spec provides the acceptance criteria (SDD). Each acceptance criterion trans
 - **Circular dependencies detected**: Auto-fix using dependency-grapher suggestions and report what was changed
 - **`.claude/tasks/` directory doesn't exist**: Create it
 - **Re-generating tasks for existing spec**: Warn user that existing state.json will be overwritten, ask for confirmation
+
+---
+
+## Implementation Rules (MUST FOLLOW)
+
+- **JSON**: Use ONLY `jq` for JSON processing. NEVER use Python or Node.js.
+- **Files**: Check existence before reading: `[ -f "$FILE" ] && jq '.' "$FILE"`
+- **Directories**: Create with `mkdir -p` and check with `[ -d "$DIR" ]`
+- **Errors**: ALWAYS suppress with `2>/dev/null` or `|| true` when files/dirs might not exist.
+- **No visible errors**: The user should NEVER see "Exit code" errors in the output.
+- **Index writes**: ALWAYS update both indexes via the `index-sync` skill (Step 7).  NEVER write one index alone.

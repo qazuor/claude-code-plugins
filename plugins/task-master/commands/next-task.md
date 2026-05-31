@@ -35,23 +35,23 @@ A task is **available** if ALL of the following are true:
 
 1. Its `status` is `"pending"` (not in-progress, completed, blocked, or cancelled)
 2. Its `blockedBy` array is empty, OR every task ID in `blockedBy` has status `"completed"` in the same state file
-3. Its `complexity` is ≤ 4 (tasks with complexity > 4 are too complex and must be split first)
+3. Its `complexity` is ≤ 3 (tasks with complexity > 3 are too complex and must be split first)
 
 Collect all available tasks from all state files. Track which epic/standalone group each task belongs to.
 
 ### Complexity Filter
 
-**Tasks with complexity > 4 are NEVER presented as available**, even if they meet all other criteria. Instead, they are listed separately with a warning:
+**Tasks with complexity > 3 are NEVER presented as available**, even if they meet all other criteria. Instead, they are listed separately with a warning:
 
 ```
-⚠ Tasks requiring decomposition (complexity > 4):
+⚠ Tasks requiring decomposition (complexity > 3):
 
   T-009 "Implement full OAuth flow" (complexity: 6)
-    This task exceeds the maximum complexity of 4 and cannot be started.
+    This task exceeds the maximum complexity of 3 and cannot be started.
     Use /replan to split it into smaller tasks first.
 
   T-012 "Build admin dashboard" (complexity: 5)
-    This task exceeds the maximum complexity of 4 and cannot be started.
+    This task exceeds the maximum complexity of 3 and cannot be started.
     Use /replan to split it into smaller tasks first.
 ```
 
@@ -62,7 +62,7 @@ This acts as a safety net to prevent execution of tasks that slipped through the
 - **No tasks at all**: Display "No tasks found" message
 - **All tasks completed**: Display congratulations message with completion stats
 - **All remaining tasks blocked**: Display "All remaining tasks are blocked" with details of what's blocking progress and which in-progress tasks need to finish first
-- **All available tasks exceed complexity 4**: Display "All available tasks exceed maximum complexity 4. Use /replan to split them before continuing."
+- **All available tasks exceed complexity 3**: Display "All available tasks exceed maximum complexity 3. Use /replan to split them before continuing."
 - **Tasks already in-progress**: Remind the user they have in-progress tasks and ask if they want to continue those first before starting a new one
 
 ## Step 3: Rank Available Tasks
@@ -119,6 +119,30 @@ Currently in-progress: none
 Which task would you like to start? Enter the task ID (e.g., T-007) or [skip]:
 ```
 
+## Step 3.5: Spec Realign Gate (first task of a spec this session)
+
+Before starting any task, check whether this is the **first task being started for its parent spec in this session**.
+
+**How to detect "first task of the spec this session":**
+- Look at the selected task's parent epic (its `specId` in index.json)
+- Check whether any other task in that same epic has `status: "in-progress"` — if yes, the spec is already underway this session, skip the gate
+- If no task in the epic is currently `in-progress`, this is the first task for that spec this session → trigger the gate
+
+**Gate prompt (show only when triggered):**
+
+```
+Spec drift check: SPEC-NNN "Spec Title"
+----------------------------------------
+This spec may have drifted from the codebase since it was written
+(other specs or refactors may have changed things it depends on).
+
+Run /spec-realign before starting? (yes / skip):
+```
+
+- If the user answers **yes**: stop here and invoke `/spec-realign SPEC-NNN`. Do NOT proceed to Step 4 until the realign command finishes.
+- If the user answers **skip** (or any variation of no/n/skip): proceed directly to Step 4 without comment.
+- The gate appears at most ONCE per spec per session. If the user skips, do not re-ask for subsequent tasks of the same spec in the same session. Track which spec IDs have had the gate shown this session (in memory, not in any file).
+
 ## Step 4: Confirm and Start Task
 
 When the user selects a task (by ID or by choosing option 1/2):
@@ -129,20 +153,49 @@ Ensure the selected task ID exists and is actually available (status pending, de
 
 ### 4b. Update task status
 
-In the appropriate `state.json` file:
+In the appropriate `state.json` file, wrap ALL reads and writes in a single `flock` block to prevent a parallel `/next-task` session from picking the same task:
 
-1. Set the task's `status` to `"in-progress"`
-2. Set `timestamps.started` to the current ISO 8601 timestamp
-3. Update the `summary` object:
-   - Decrement `pending` by 1
-   - Increment `inProgress` by 1
+```bash
+(
+  flock -w 10 200 || { echo "index busy, another session holds the lock — retry in a moment"; exit 1; }
+
+  # 1. Re-read state.json inside the lock to confirm task is still "pending"
+  #    (another session may have claimed it between Step 2 and now)
+  CURRENT_STATUS=$(jq -r --arg id "$taskId" '.tasks[] | select(.id == $id) | .status' "$STATE_FILE" 2>/dev/null)
+  if [ "$CURRENT_STATUS" != "pending" ]; then
+    echo "Task $taskId is no longer pending (status: $CURRENT_STATUS) — another session may have claimed it. Re-run /next-task."
+    exit 1
+  fi
+
+  # 2. Apply the mutations inside the lock
+  jq --arg id "$taskId" --arg ts "$(date -u +%Y-%m-%dT%H:%M:%SZ)" '
+    .tasks |= map(
+      if .id == $id then
+        .status = "in-progress" |
+        .timestamps.started = $ts
+      else . end
+    ) |
+    .summary.pending   -= 1 |
+    .summary.inProgress += 1
+  ' "$STATE_FILE" > "${STATE_FILE}.tmp" && mv "${STATE_FILE}.tmp" "$STATE_FILE"
+
+) 200>.claude/tasks/.index.lock
+```
 
 ### 4c. Update task index
 
-In `.claude/tasks/index.json`:
+Use the **index-sync skill** to update both `.claude/specs/index.json` and `.claude/tasks/index.json` atomically.  NEVER write one index alone.
 
-- For epic tasks: update the epic's `status` to `"in-progress"` if it was `"pending"`
-- For standalone tasks: no additional index update needed (counts are in state.json)
+- For epic tasks: if the epic's current status is a not-yet-started state (`"pending"`, `"draft"`, or `"reserved"`), pass `newStatus: "in-progress"` to index-sync.  (Epics now mirror the spec status, so a freshly created epic is `"draft"`, not `"pending"` — starting its first task must move it to `"in-progress"` from any of these three states, or it would stay stuck.)
+- The index-sync skill wraps its writes in the same `flock` block — no double-locking needed.
+- For standalone tasks: no index status update needed (counts live in state.json), but still confirm the tasks/index.json standalone counts remain accurate.
+
+```
+Call index-sync with:
+  specId:       <parent specId from index.json>
+  newStatus:    "in-progress"   (only if current epic status is "pending", "draft", or "reserved")
+  newProgress:  null            (progress is derived from state.json, not set here)
+```
 
 ### 4d. Confirm to user
 
@@ -174,15 +227,35 @@ Task started!
 
 Show the task's subtasks (if any) as a checklist to guide implementation.
 
-**Always remind the user to follow TDD:**
+**STRICT TDD RED-FIRST GATE (BLOCKING — NOT OPTIONAL):**
 
 ```
-Development approach: TDD (Red-Green-Refactor)
-  1. RED:      Write failing tests first (based on task test requirements)
-  2. GREEN:    Write minimum code to make tests pass
-  3. REFACTOR: Improve code while tests stay green
+MANDATORY before writing ANY implementation code
+================================================
 
-Remember: No tests = not done. Implementation and tests are committed together.
+Before you write or edit ANY production file for this task, you MUST:
+
+  1. Write at least one test that captures the expected behavior of the task
+     and CONFIRM IT FAILS (RED) by running it and showing the failure output.
+
+  2. Only after you have a red test may you write the implementation.
+
+If you find yourself editing an implementation file before a failing test
+exists — STOP immediately. Write the test first, run it, show it failing,
+THEN implement.
+
+This is not a reminder. It is a hard gate. Skipping it is not allowed.
+```
+
+**Red-Green-Refactor cycle:**
+```
+  1. RED:      Write a failing test that defines the expected behavior.
+               Run it. Show the failure. Do not proceed until you see RED.
+  2. GREEN:    Write the minimum implementation to make the test pass.
+               Run the test suite. Confirm it is GREEN.
+  3. REFACTOR: Improve code quality while keeping tests green.
+
+No tests = not done. Implementation and tests are committed together.
 ```
 
 ## Step 5: Phase Boundary Check
@@ -252,3 +325,5 @@ Remember: Task state has been updated.
 - **Directories**: Check existence: `[ -d "$DIR" ] && ls "$DIR" 2>/dev/null || echo "(none)"`
 - **Errors**: ALWAYS suppress with `2>/dev/null` or `|| true` when files/dirs might not exist.
 - **No visible errors**: The user should NEVER see "Exit code" errors in the output.
+- **Index writes**: ALWAYS update both indexes via the `index-sync` skill.  NEVER write one index alone.
+- **Locking**: ALL index/state mutations (Steps 4b and 4c) MUST happen inside a single `flock` block on `.claude/tasks/.index.lock` with a 10-second timeout.  This prevents two parallel worktrees from claiming the same task simultaneously.

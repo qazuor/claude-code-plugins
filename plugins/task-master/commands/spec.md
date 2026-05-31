@@ -1,6 +1,7 @@
 ---
 name: spec
 description: Generate a specification from requirements - analyzes complexity, checks overlaps, writes spec, and generates tasks
+allowed-tools: Read, Write, Edit, Bash, Glob, Grep, Task, mcp__plugin_engram_engram__mem_search, mcp__plugin_engram_engram__mem_save, mcp__plugin_engram_engram__mem_get_observation, mcp__plugin_engram_engram__mem_suggest_topic_key
 ---
 
 # /spec
@@ -73,24 +74,60 @@ Ask the user questions across ALL of these categories. Do not skip any category.
 - What could go wrong? What are the risks?
 - Are there backwards compatibility concerns?
 
-### 0c. Question Guidelines
+**Alternative Approaches (MANDATORY — evaluate before committing):**
+- Is this the simplest possible way to solve the problem? Could a simpler mechanism achieve the same result?
+- Are there trade-offs between approaches (complexity vs. flexibility, coupling vs. independence)?
+- Does the proposed approach align with existing patterns in the codebase, or would it introduce a new pattern?
+- If a new pattern would be introduced, is that justified? What are the long-term maintenance implications?
+- Present 2-3 alternative designs to the user and explain the trade-offs for each before finalizing the approach.
+
+**External Services and Libraries (MANDATORY when applicable):**
+- Does the feature touch any external API, library, or service (payment processor, authentication provider, cloud storage, etc.)?
+- If yes: read the relevant documentation using web search to verify API shapes, authentication flows, error codes, rate limits, and known gotchas. Do NOT rely on training data alone — APIs change.
+- List every external integration and the documentation URL you verified against.
+
+**Inconsistency and Conflict Detection:**
+- Does this feature overlap in any way with existing functionality already implemented?
+- Could this change break or regress any currently working feature?
+- Are there naming conflicts, schema conflicts, or permission model conflicts with existing code?
+- Does any part of this requirement contradict another part of the same requirement?
+- Flag every inconsistency to the user before proceeding.
+
+### 0c. Codebase Exploration (Do Before Finalizing Questions)
+
+Before concluding the questioning phase, explore the actual codebase to inform your questions and identify gaps the user may not have thought about:
+
+1. **Scan affected areas**: Read files in directories related to the feature. Identify existing patterns, naming conventions, and architectural constraints that the spec MUST follow.
+2. **Check for existing implementations**: Is there anything already partially implemented or similar to what is being requested? Report findings to the user — they may not know.
+3. **Identify implicit constraints**: Does the codebase enforce patterns (e.g., always use a base service class, always validate with Zod, always use a specific response factory)? These must be reflected in the spec.
+4. **Flag complexity gaps**: If the user underestimates complexity based on what you see in the code, tell them explicitly.
+
+### 0d. Question Guidelines
 
 - **Do NOT assume.** If something is unclear, ask.
 - **Do NOT interpret freely.** If the answer is ambiguous, ask for clarification.
 - **Ask follow-up questions.** One answer often reveals the need for more questions.
 - **Validate understanding.** Summarize what you understood and ask the user to confirm.
 - **10-20 questions is normal** for a medium-to-complex feature. The user prefers thorough questioning over bad assumptions during development.
+- **Propose alternatives.** For every significant design decision, present at least 2 options with trade-offs before letting the user decide. Never unilaterally pick an approach without offering alternatives.
+- **Comment on quality.** If a proposed approach could be done better, say so directly and explain why. Do not just passively accept the user's first instinct.
 
-### 0d. Get Plan Approval
+### 0e. Overlap Pre-Check (Run During Step 0, Not After)
+
+Do NOT wait for Step 1 to check overlaps. During the questioning phase, scan `.claude/specs/index.json` and `.claude/tasks/index.json` for any spec or task that could intersect with the requirement. If overlaps are found, present them to the user as part of the questioning phase so the scope can be adjusted before any spec is written. This prevents writing a spec that duplicates existing work.
+
+### 0f. Get Plan Approval
 
 After all questions are answered, present a summary of the plan:
 1. What will be built (functional description)
-2. How it will be built (technical approach)
+2. How it will be built (technical approach, with alternatives considered and why this one was chosen)
 3. What files will be created/modified
 4. What the user flows look like
 5. What the edge cases and error handling look like
 6. What the testing strategy is
-7. What is out of scope
+7. What is out of scope (explicitly)
+8. What external services/libraries are involved and which docs were verified
+9. What inconsistencies or risks were identified
 
 **The user must explicitly approve this plan before proceeding to Step 1.**
 
@@ -208,9 +245,93 @@ Use the approved plan from Step 0 as the foundation for the specification. The s
 
 ### 3a. Generate Spec ID
 
-Read `.claude/specs/index.json` to find the highest existing SPEC-NNN number. If the file does not exist, start at SPEC-001. The next ID is the highest number + 1, zero-padded to 3 digits.
+Use a three-source scan to determine the next SPEC-NNN number. The goal is to prevent two
+parallel sessions or worktrees from allocating the same number. Each source is a fallback for
+the previous; all three together give the strongest collision guarantee.
 
-Generate a URL-friendly slug from the title (lowercase, hyphens, max 50 chars). The directory will be: `.claude/specs/SPEC-NNN-slug/`
+**Source 1 — index.json (always run):**
+
+Read `.claude/specs/index.json` and extract the highest SPEC-NNN number present. If the file
+does not exist, treat the maximum as 0.
+
+```bash
+INDEX_MAX=$([ -f .claude/specs/index.json ] && \
+  jq -r '[.[] | .specId // .id // "" | scan("SPEC-([0-9]+)") | tonumber] | max // 0' \
+  .claude/specs/index.json 2>/dev/null || echo 0)
+```
+
+**Source 2 — git log (always run):**
+
+Scan all branches for spec directories created in the past, including those never merged.
+
+```bash
+GIT_MAX=$(git log --all --name-only --format="" -- ".claude/specs/" 2>/dev/null | \
+  grep -oE "SPEC-[0-9]+" | grep -oE "[0-9]+" | sort -n | tail -1 || echo 0)
+```
+
+Take `CANDIDATE = max(INDEX_MAX, GIT_MAX) + 1`.
+
+**Source 3 — engram registry (OPTIONAL, best-effort — run only if engram tools are available):**
+
+> **Engram is optional.** If the engram MCP tools are not available in this session, skip this
+> source entirely and fall through to the final candidate computed from Sources 1 and 2. Do NOT
+> fail or pause if engram is unreachable — just warn and continue.
+
+Derive the project name from the repo root directory name (e.g., `basename $(git rev-parse --show-toplevel)`).
+
+1. Search engram for `task-master/spec-registry/<project>`:
+   ```
+   mem_search(query: "task-master/spec-registry/<project>", project: "<project>")
+   ```
+2. If a result is found, retrieve the full observation:
+   ```
+   mem_get_observation(id: <result_id>)
+   ```
+   Parse the `lastNumber` field from the JSON content. Let `ENGRAM_MAX = lastNumber`.
+3. Update `CANDIDATE = max(CANDIDATE, ENGRAM_MAX + 1)`.
+4. If no result is found, treat `ENGRAM_MAX = 0` and keep the candidate from Sources 1 and 2.
+5. If engram tools are unavailable or any call throws an error, log a one-line warning:
+   ```
+   [spec] engram unavailable — using index.json + git scan only (SPEC-NNN).
+   ```
+   Then continue with the candidate from Sources 1 and 2. Do NOT block spec creation.
+
+**Reserve the number in engram (OPTIONAL — only if engram is available and Sources 3 above succeeded):**
+
+After computing the final `CANDIDATE`, save a reservation so parallel sessions see it:
+
+```
+mem_save(
+  title: "Reserve SPEC-<CANDIDATE> for <slug>",
+  type: "decision",
+  scope: "project",
+  topic_key: "task-master/spec-registry/<project>",
+  content: {
+    "lastNumber": <CANDIDATE>,
+    "allocations": [
+      {
+        "specId": "SPEC-<CANDIDATE>",
+        "slug": "<slug>",
+        "status": "reserved",
+        "reservedAt": "<ISO timestamp>",
+        "branch": "<current git branch>"
+      }
+    ]
+  }
+)
+```
+
+On the first git commit that touches the `.claude/specs/SPEC-<CANDIDATE>-<slug>/` directory,
+update the engram entry with `"status": "active"` by calling `mem_save` again with the same
+`topic_key` (upsert). This transitions the reservation to active and prevents stale-reservation
+accumulation.
+
+**Final step — compute directory:**
+
+Generate a URL-friendly slug from the title (lowercase, hyphens, max 50 chars).
+The directory will be: `.claude/specs/SPEC-<CANDIDATE>-<slug>/`
+
+Use `CANDIDATE` zero-padded to 3 digits as the spec number (e.g., `007`, `042`, `123`).
 
 ### 3b. Enter Plan Mode
 
@@ -253,9 +374,41 @@ Fill in the template frontmatter:
 - `status`: `draft`
 - `created`: current ISO 8601 timestamp
 
-### 3c. Present for approval
+### 3c. Internal Review Passes (Before Presenting to User)
 
-After writing the plan, present it to the user for review. The user must explicitly approve the spec before it is published.
+Before presenting the spec for user approval, run N internal review passes. Do NOT skip this — it is the last quality gate before the spec becomes a contract for development.
+
+**Pass 1 — Completeness and Junior-Readability Gate:**
+Read every section of the spec as if you are a junior developer seeing it for the first time.
+- Could a junior developer implement this with zero guessing? If not, add more detail.
+- Is every decision explicit? (file paths, function signatures, data shapes, error handling)
+- Is anything left to "the developer's judgment"? If yes, either resolve it or flag it as an open question for the user.
+- Are all edge cases and error scenarios explicitly documented with expected behavior?
+
+**Pass 2 — Technical Coherence Gate:**
+- Is every technical decision coherent with the existing architecture seen in the codebase?
+- Does the spec introduce any pattern that conflicts with established conventions?
+- Are all the layer interactions correct? (DB → Service → API → Frontend in that order)
+- Are dependencies justified and minimal? Does any proposed dependency already exist in the project?
+
+**Pass 3 — External API/Library Accuracy Gate (only if external services are involved):**
+- For every external API, library, or service referenced, verify the actual endpoint names, authentication mechanisms, response shapes, and error codes against the real documentation (use web search).
+- Replace any guessed or potentially stale information with verified facts.
+- Add a note to the spec for each external integration: "Verified against [URL] on [date]."
+
+**Pass 4 — Acceptance Criteria Testability Gate:**
+- Can every single acceptance criterion be implemented as an automated test?
+- Is each criterion specific enough to have a clear pass/fail condition?
+- Are there acceptance criteria that are too vague (e.g., "works correctly", "is fast", "looks good")? Replace with measurable criteria.
+
+**After all passes**, add a `## Internal Review Notes` section at the bottom of the draft listing:
+- Any items strengthened during the review
+- Any open questions that require user input before implementation
+- External docs verified (URLs)
+
+### 3d. Present for approval
+
+After completing all internal review passes, present the spec to the user for review. The user must explicitly approve the spec before it is published.
 
 ## Step 4: Publish Specification
 
@@ -297,6 +450,10 @@ Tags should be derived from the spec content: affected components, technologies,
 ### 4d. Update specs index
 
 Create or update `.claude/specs/index.json` to include the new spec entry. If the file does not exist, create it as an array. Add an entry with `specId`, `title`, `type`, `complexity`, `status`, and `path`.
+
+**Always use the `index-sync` skill for this write** so that `tasks/index.json` is updated in the same atomic operation.  NEVER write one index alone.
+
+At this point `tasks/index.json` may not yet have an epic entry for this spec (that is created in Step 5c).  index-sync handles this gracefully — it will create the entry if it does not exist.
 
 ## Step 5: Generate Ultra-Granular Atomic Tasks
 
@@ -351,7 +508,14 @@ Spec: SPEC-NNN | Status: in-progress | Progress: 0/N
 
 ### 5c. Update task index
 
-Update `.claude/tasks/index.json` to add the new epic. If the file does not exist, create it following the index schema at `templates/index-schema.json`:
+Update both `.claude/tasks/index.json` **and** `.claude/specs/index.json` using the **index-sync skill**.  NEVER write one index alone.
+
+Use index-sync with:
+- `specId`: the newly generated SPEC-NNN
+- `newStatus`: `"draft"` (mirrored as `"draft"` in tasks index — the mapping is identity except `approved`→`pending`)
+- `newProgress`: `"0/N"` where N is the total number of generated tasks
+
+If the file does not exist, create it following the index schema at `templates/index-schema.json`:
 
 ```json
 {
@@ -360,7 +524,7 @@ Update `.claude/tasks/index.json` to add the new epic. If the file does not exis
     {
       "specId": "SPEC-NNN",
       "title": "Spec Title",
-      "status": "pending",
+      "status": "draft",
       "progress": "0/N",
       "path": "SPEC-NNN-slug"
     }
@@ -412,3 +576,4 @@ Specification created successfully!
 - **Directories**: Create with `mkdir -p` and check with `[ -d "$DIR" ]`
 - **Errors**: ALWAYS suppress with `2>/dev/null` or `|| true` when files/dirs might not exist.
 - **No visible errors**: The user should NEVER see "Exit code" errors in the output.
+- **Index writes**: ALWAYS update both indexes via the `index-sync` skill (Steps 4d and 5c).  NEVER write one index alone.

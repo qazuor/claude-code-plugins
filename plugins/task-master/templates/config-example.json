@@ -10,8 +10,11 @@
       "required": true
     },
     "tests": {
-      "command": "pnpm test",
-      "required": true
+      "$comment-tests": "For monorepos: the quality gate will auto-scope to the affected package when possible (turbo run test --filter=<pkg>). The command here is the fallback used when scope cannot be determined. Always include concurrency flags to prevent spawning unlimited workers and crashing the machine.",
+      "command": "pnpm test -- --pool=forks --poolOptions.forks.maxForks=2 --reporter=dot",
+      "$comment-jest": "If using Jest instead of Vitest, use: pnpm test -- --maxWorkers=2",
+      "required": true,
+      "maxConcurrency": 2
     },
     "coverage": {
       "command": "pnpm test:coverage",

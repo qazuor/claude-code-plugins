@@ -15,6 +15,57 @@ You are the task dashboard renderer for the task-master plugin. Your job is to r
 
 ## Data Collection
 
+### Step 0: Drift Cross-Check (Run Before Any Rendering)
+
+Before reading epic state files, verify that the two indexes agree on every spec's status.  This catches drift that accumulated from previous sessions where one index was written without the other.
+
+```bash
+SPECS_INDEX=".claude/specs/index.json"
+TASKS_INDEX=".claude/tasks/index.json"
+
+# Only run the check when both files exist
+if [ -f "$SPECS_INDEX" ] && [ -f "$TASKS_INDEX" ]; then
+  # For each specId present in tasks/index.json, compare its status against specs/index.json
+  # Status mapping is IDENTITY (tasks mirrors spec status exactly), with a single
+  # exception: specs "approved" => tasks "pending".  This MUST stay in sync with the
+  # mapping table in skills/index-sync/SKILL.md Step 2.
+  jq -r --slurpfile specs "$SPECS_INDEX" '
+    .epics[] |
+    .specId as $id |
+    .status as $task_status |
+    ($specs[0].specs // [] | map(select(.specId == $id)) | first) as $spec_entry |
+    if $spec_entry == null then empty  # spec not in specs index yet — skip
+    else
+      ($spec_entry.status) as $spec_status |
+      # Compute expected tasks status from spec status (identity except approved→pending)
+      (if $spec_status == "approved" then "pending" else $spec_status end) as $expected_task_status |
+      if $task_status != $expected_task_status
+      then "DRIFT|\($id)|\($spec_status)|\($task_status)"
+      else empty
+      end
+    end
+  ' "$TASKS_INDEX" 2>/dev/null
+fi
+```
+
+If any `DRIFT|...` lines are produced, display a warning banner **before** the main dashboard:
+
+```
+⚠ INDEX DRIFT DETECTED
+=======================
+The following specs have inconsistent status between the two indexes.
+specs/index.json is authoritative.  Run /spec-realign or re-run any
+task-master command that writes to the index to reconcile.
+
+  SPEC-NNN  specs: "completed"  tasks: "in-progress"   ← needs reconciliation
+  SPEC-MMM  specs: "cancelled"  tasks: "pending"        ← needs reconciliation
+
+Use the index-sync skill to repair.
+=======================
+```
+
+This is a read-only warning — the dashboard does NOT auto-repair drift.  It only surfaces it so the user can act.
+
 ### Step 1: Read the global index
 
 Read `.claude/tasks/index.json`. This file follows the schema at `templates/index-schema.json` and contains:
@@ -113,7 +164,7 @@ For each epic in the index:
 4. Show per-phase breakdown: count completed vs total for each phase that has tasks
 5. Show count of blocked tasks
 
-Sort epics: `in-progress` first, then `pending`, then `completed`.
+Sort epics by status in this order: `in-progress`, `pending`, `draft`, `reserved`, `completed`, `merged`, `obsolete`, `cancelled`.  (Active work first; terminal/archived states last.)
 
 ### STANDALONE TASKS Section
 
@@ -154,8 +205,8 @@ Calculate across ALL tasks (epics + standalone):
 
 - **Total tasks**: sum of all tasks
 - **By status**: count and percentage for each status
-- **Avg complexity (remaining)**: average complexity of non-completed, non-cancelled tasks
-- **Epics**: count active (in-progress + pending) vs completed
+- **Avg complexity (remaining)**: average complexity of tasks not in a terminal state (`completed`, `cancelled`, `merged`, `obsolete`)
+- **Epics**: count active (`in-progress` + `pending` + `draft`) vs terminal (`completed` + `merged` + `obsolete` + `cancelled`)
 
 ## Formatting Rules
 
@@ -174,3 +225,4 @@ Calculate across ALL tasks (epics + standalone):
 - **Directories**: Check existence: `[ -d "$DIR" ] && ls "$DIR" 2>/dev/null || echo "(none)"`
 - **Errors**: ALWAYS suppress with `2>/dev/null` or `|| true` when files/dirs might not exist.
 - **No visible errors**: The user should NEVER see "Exit code" errors in the output.
+- **Index writes**: This command is read-only — it NEVER writes to either index.  All status/progress writes happen via the `index-sync` skill in the commands/skills that mutate state.

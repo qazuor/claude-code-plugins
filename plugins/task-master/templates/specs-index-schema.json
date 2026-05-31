@@ -24,7 +24,7 @@
           },
           "status": {
             "type": "string",
-            "enum": ["draft", "approved", "in-progress", "completed", "cancelled"]
+            "enum": ["draft", "approved", "in-progress", "completed", "cancelled", "reserved", "merged", "obsolete"]
           },
           "complexity": {
             "type": "string",
