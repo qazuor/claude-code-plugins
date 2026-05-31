@@ -130,6 +130,30 @@ Cleaning up loop state...
 
 Delete the state file and stop.
 
+### 5b-1. Spec Realign Gate (first task of a spec this session)
+
+Before starting the selected task, check whether this is the **first task being started for its parent spec in this session**.
+
+**How to detect "first task of the spec this session":**
+- Check the selected task's parent epic (`specId`)
+- If no other task from that epic has been started during this auto-loop run (not in `completed_tasks` and not currently `in-progress`), this is the first task for that spec → trigger the gate
+
+**Gate (pause the loop and ask):**
+
+```
+LOOP PAUSED — Spec drift check
+================================
+
+SPEC-NNN "Spec Title" — about to start first task T-XXX.
+This spec may have drifted from the codebase since it was written.
+
+Run /spec-realign SPEC-NNN before continuing? (yes / skip):
+```
+
+- If the user answers **yes**: pause the loop, invoke `/spec-realign SPEC-NNN`, wait for it to complete, then resume the loop from Step 5b (re-select next task, since the realign may have cancelled or modified tasks).
+- If the user answers **skip**: continue to Step 5c immediately without comment.
+- The gate appears at most ONCE per spec per loop run. After the first task of a given spec has passed through (either realigned or skipped), do NOT re-ask for subsequent tasks of the same spec in this loop run.
+
 ### 5c. Start Task
 
 ```

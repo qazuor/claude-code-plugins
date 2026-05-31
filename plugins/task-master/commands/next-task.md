@@ -119,6 +119,30 @@ Currently in-progress: none
 Which task would you like to start? Enter the task ID (e.g., T-007) or [skip]:
 ```
 
+## Step 3.5: Spec Realign Gate (first task of a spec this session)
+
+Before starting any task, check whether this is the **first task being started for its parent spec in this session**.
+
+**How to detect "first task of the spec this session":**
+- Look at the selected task's parent epic (its `specId` in index.json)
+- Check whether any other task in that same epic has `status: "in-progress"` — if yes, the spec is already underway this session, skip the gate
+- If no task in the epic is currently `in-progress`, this is the first task for that spec this session → trigger the gate
+
+**Gate prompt (show only when triggered):**
+
+```
+Spec drift check: SPEC-NNN "Spec Title"
+----------------------------------------
+This spec may have drifted from the codebase since it was written
+(other specs or refactors may have changed things it depends on).
+
+Run /spec-realign before starting? (yes / skip):
+```
+
+- If the user answers **yes**: stop here and invoke `/spec-realign SPEC-NNN`. Do NOT proceed to Step 4 until the realign command finishes.
+- If the user answers **skip** (or any variation of no/n/skip): proceed directly to Step 4 without comment.
+- The gate appears at most ONCE per spec per session. If the user skips, do not re-ask for subsequent tasks of the same spec in the same session. Track which spec IDs have had the gate shown this session (in memory, not in any file).
+
 ## Step 4: Confirm and Start Task
 
 When the user selects a task (by ID or by choosing option 1/2):
