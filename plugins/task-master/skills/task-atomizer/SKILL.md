@@ -202,6 +202,26 @@ Avoid vague titles like:
 
 ### Task Description Guidelines
 
+#### Per-Artifact Size Budgets (MANDATORY)
+
+Every task object MUST stay within these budgets. Over-budget artifacts signal the task is too
+large and MUST be split before it can be accepted into a task set.
+
+| Artifact | Budget | Action if over budget |
+|----------|--------|-----------------------|
+| Task `description` (total body text) | ≤ 200 words | Split the task into two or more tasks |
+| `subtasks` array | ≤ 5 items | Split the task — subtasks beyond 5 indicate too broad a scope |
+| Acceptance criteria items (within description) | Concise and individually testable; each ≤ 1 sentence | Rewrite or split until each criterion has a clear pass/fail condition |
+
+These budgets enforce atomicity. A task description exceeding 200 words almost always means the
+task covers multiple distinct concerns — decompose it. A subtask list beyond 5 items means the
+work unit needs to be split into independent tasks. Both rules are consistent with the complexity
+≤ 3 ceiling: if a task is truly atomic, it should be describable concisely.
+
+**During Pass 3+ (scoring loop):** after scoring, also check every task against the size budgets
+above. Tasks that pass the complexity ≤ 3 check but exceed a size budget MUST be split just as
+aggressively as over-complexity tasks.
+
 Each description MUST include:
 1. **What to do** — Clear action to take
 2. **Where to do it** — Specific files to create or modify (with paths)

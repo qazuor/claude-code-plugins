@@ -1,6 +1,7 @@
 ---
 name: spec
 description: Generate a specification from requirements - analyzes complexity, checks overlaps, writes spec, and generates tasks
+allowed-tools: Read, Write, Edit, Bash, Glob, Grep, Task, mcp__plugin_engram_engram__mem_search, mcp__plugin_engram_engram__mem_save, mcp__plugin_engram_engram__mem_get_observation, mcp__plugin_engram_engram__mem_suggest_topic_key
 ---
 
 # /spec
@@ -244,9 +245,93 @@ Use the approved plan from Step 0 as the foundation for the specification. The s
 
 ### 3a. Generate Spec ID
 
-Read `.claude/specs/index.json` to find the highest existing SPEC-NNN number. If the file does not exist, start at SPEC-001. The next ID is the highest number + 1, zero-padded to 3 digits.
+Use a three-source scan to determine the next SPEC-NNN number. The goal is to prevent two
+parallel sessions or worktrees from allocating the same number. Each source is a fallback for
+the previous; all three together give the strongest collision guarantee.
 
-Generate a URL-friendly slug from the title (lowercase, hyphens, max 50 chars). The directory will be: `.claude/specs/SPEC-NNN-slug/`
+**Source 1 — index.json (always run):**
+
+Read `.claude/specs/index.json` and extract the highest SPEC-NNN number present. If the file
+does not exist, treat the maximum as 0.
+
+```bash
+INDEX_MAX=$([ -f .claude/specs/index.json ] && \
+  jq -r '[.[] | .specId // .id // "" | scan("SPEC-([0-9]+)") | tonumber] | max // 0' \
+  .claude/specs/index.json 2>/dev/null || echo 0)
+```
+
+**Source 2 — git log (always run):**
+
+Scan all branches for spec directories created in the past, including those never merged.
+
+```bash
+GIT_MAX=$(git log --all --name-only --format="" -- ".claude/specs/" 2>/dev/null | \
+  grep -oE "SPEC-[0-9]+" | grep -oE "[0-9]+" | sort -n | tail -1 || echo 0)
+```
+
+Take `CANDIDATE = max(INDEX_MAX, GIT_MAX) + 1`.
+
+**Source 3 — engram registry (OPTIONAL, best-effort — run only if engram tools are available):**
+
+> **Engram is optional.** If the engram MCP tools are not available in this session, skip this
+> source entirely and fall through to the final candidate computed from Sources 1 and 2. Do NOT
+> fail or pause if engram is unreachable — just warn and continue.
+
+Derive the project name from the repo root directory name (e.g., `basename $(git rev-parse --show-toplevel)`).
+
+1. Search engram for `task-master/spec-registry/<project>`:
+   ```
+   mem_search(query: "task-master/spec-registry/<project>", project: "<project>")
+   ```
+2. If a result is found, retrieve the full observation:
+   ```
+   mem_get_observation(id: <result_id>)
+   ```
+   Parse the `lastNumber` field from the JSON content. Let `ENGRAM_MAX = lastNumber`.
+3. Update `CANDIDATE = max(CANDIDATE, ENGRAM_MAX + 1)`.
+4. If no result is found, treat `ENGRAM_MAX = 0` and keep the candidate from Sources 1 and 2.
+5. If engram tools are unavailable or any call throws an error, log a one-line warning:
+   ```
+   [spec] engram unavailable — using index.json + git scan only (SPEC-NNN).
+   ```
+   Then continue with the candidate from Sources 1 and 2. Do NOT block spec creation.
+
+**Reserve the number in engram (OPTIONAL — only if engram is available and Sources 3 above succeeded):**
+
+After computing the final `CANDIDATE`, save a reservation so parallel sessions see it:
+
+```
+mem_save(
+  title: "Reserve SPEC-<CANDIDATE> for <slug>",
+  type: "decision",
+  scope: "project",
+  topic_key: "task-master/spec-registry/<project>",
+  content: {
+    "lastNumber": <CANDIDATE>,
+    "allocations": [
+      {
+        "specId": "SPEC-<CANDIDATE>",
+        "slug": "<slug>",
+        "status": "reserved",
+        "reservedAt": "<ISO timestamp>",
+        "branch": "<current git branch>"
+      }
+    ]
+  }
+)
+```
+
+On the first git commit that touches the `.claude/specs/SPEC-<CANDIDATE>-<slug>/` directory,
+update the engram entry with `"status": "active"` by calling `mem_save` again with the same
+`topic_key` (upsert). This transitions the reservation to active and prevents stale-reservation
+accumulation.
+
+**Final step — compute directory:**
+
+Generate a URL-friendly slug from the title (lowercase, hyphens, max 50 chars).
+The directory will be: `.claude/specs/SPEC-<CANDIDATE>-<slug>/`
+
+Use `CANDIDATE` zero-padded to 3 digits as the spec number (e.g., `007`, `042`, `123`).
 
 ### 3b. Enter Plan Mode
 

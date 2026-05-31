@@ -227,15 +227,35 @@ Task started!
 
 Show the task's subtasks (if any) as a checklist to guide implementation.
 
-**Always remind the user to follow TDD:**
+**STRICT TDD RED-FIRST GATE (BLOCKING — NOT OPTIONAL):**
 
 ```
-Development approach: TDD (Red-Green-Refactor)
-  1. RED:      Write failing tests first (based on task test requirements)
-  2. GREEN:    Write minimum code to make tests pass
-  3. REFACTOR: Improve code while tests stay green
+MANDATORY before writing ANY implementation code
+================================================
 
-Remember: No tests = not done. Implementation and tests are committed together.
+Before you write or edit ANY production file for this task, you MUST:
+
+  1. Write at least one test that captures the expected behavior of the task
+     and CONFIRM IT FAILS (RED) by running it and showing the failure output.
+
+  2. Only after you have a red test may you write the implementation.
+
+If you find yourself editing an implementation file before a failing test
+exists — STOP immediately. Write the test first, run it, show it failing,
+THEN implement.
+
+This is not a reminder. It is a hard gate. Skipping it is not allowed.
+```
+
+**Red-Green-Refactor cycle:**
+```
+  1. RED:      Write a failing test that defines the expected behavior.
+               Run it. Show the failure. Do not proceed until you see RED.
+  2. GREEN:    Write the minimum implementation to make the test pass.
+               Run the test suite. Confirm it is GREEN.
+  3. REFACTOR: Improve code quality while keeping tests green.
+
+No tests = not done. Implementation and tests are committed together.
 ```
 
 ## Step 5: Phase Boundary Check

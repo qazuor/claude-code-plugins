@@ -168,10 +168,19 @@ Update the task status to in-progress (same as /next-task Step 4b).
 
 ### 5d. Execute Task
 
-Work on the task following TDD methodology:
-1. RED: Write failing tests
-2. GREEN: Write minimum code to pass
-3. REFACTOR: Clean up
+**STRICT TDD RED-FIRST GATE (BLOCKING — applies in auto-loop, no exceptions):**
+
+Before writing or editing ANY production/implementation file for the current task,
+you MUST first write at least one test that FAILS for the expected behavior, run it,
+and confirm the red output. Only then write the implementation.
+
+If you find yourself editing an implementation file before a failing test exists —
+STOP and write the test first. The autonomous loop does NOT skip this gate.
+
+Red-Green-Refactor cycle:
+1. RED:      Write a failing test. Run it. Show the failure. Proceed only after RED confirmed.
+2. GREEN:    Write minimum implementation to make the test pass. Run suite. Confirm GREEN.
+3. REFACTOR: Improve code while keeping tests green.
 
 ### 5e. Run Quality Gate
 

@@ -259,6 +259,31 @@ If the user wants to split a task into multiple independent tasks:
 
 After the user chooses option (6) to finish:
 
+### 3-PRE. Progress Preservation (MANDATORY — run BEFORE any write)
+
+Before touching `state.json`, snapshot every task whose `status` is `"completed"` into an
+immutable preservation set. These records must survive the replan byte-for-byte.
+
+```bash
+# Extract completed tasks from the current state.json (inside the flock block, before any write)
+COMPLETED_SNAPSHOT=$(jq '[.tasks[] | select(.status == "completed")]' "$STATE_FILE")
+```
+
+After the new task list is computed (adds, cancels, modifications, splits), re-embed every record
+from `COMPLETED_SNAPSHOT` verbatim into the new task list. Re-embedding rules:
+
+1. Match by `id`. If a completed task ID already appears in the new task list (e.g., it was
+   inadvertently carried forward), replace it with the snapshot record.
+2. If a completed task ID does NOT appear in the new task list, insert the snapshot record as-is.
+3. **Never modify any field** of a completed task record during re-embedding — not `timestamps`,
+   not `qualityGate` results, not `subtasks`, not `commit` refs. Completed = immutable.
+4. After re-embedding, verify that `jq '[.tasks[] | select(.status == "completed")] | length'`
+   on the new state equals `COMPLETED_SNAPSHOT | length`. If the count is lower, abort and report
+   the discrepancy to the user before writing.
+
+**Completed work must survive replan byte-for-byte.** Replan reorganises pending and future work;
+it never erases what has already been done.
+
 ### 3a. Recompute summary statistics
 
 Recalculate the `summary` object in `state.json`:
@@ -385,12 +410,16 @@ Changes applied:
 
 1. **NEVER modify completed tasks** -- they represent finished, committed work
 2. **NEVER delete task data** -- cancelled tasks remain in state with `"cancelled"` status
-3. **ALWAYS check for circular dependencies** after any dependency modification
-4. **ALWAYS update both sides** of a dependency (blockedBy AND blocks)
-5. **ALWAYS recalculate summary** after any changes
-6. **ALWAYS regenerate TODOs.md** to keep it in sync with state.json
-7. **ALWAYS show the diff** so the user can verify changes
-8. **ALWAYS ask for confirmation** before applying destructive changes (cancellation)
+3. **ALWAYS snapshot completed tasks BEFORE any write** (Step 3-PRE) and re-embed them verbatim
+   after the new plan is computed -- completed work must survive replan byte-for-byte
+4. **ALWAYS verify completed-task count** after re-embedding matches the pre-replan snapshot count
+   before writing; abort and report if any completed record went missing
+5. **ALWAYS check for circular dependencies** after any dependency modification
+6. **ALWAYS update both sides** of a dependency (blockedBy AND blocks)
+7. **ALWAYS recalculate summary** after any changes
+8. **ALWAYS regenerate TODOs.md** to keep it in sync with state.json
+9. **ALWAYS show the diff** so the user can verify changes
+10. **ALWAYS ask for confirmation** before applying destructive changes (cancellation)
 
 ---
 
