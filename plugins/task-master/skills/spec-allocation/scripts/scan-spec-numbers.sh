@@ -20,8 +20,13 @@ collect() {
   if [ -f "$INDEX" ]; then
     grep -oE "SPEC-[0-9]+" "$INDEX" 2>/dev/null || true
   fi
-  # Source 2 — every branch's history, including never-merged spec dirs.
-  git log --all --name-only --format="" -- "$SPECS_DIR" 2>/dev/null \
+  # Source 2 — every branch's history, across ALL paths. Unfiltered (not scoped to
+  # $SPECS_DIR) so the scan stays correct after the specs dir MOVES between
+  # locations (e.g. .claude/specs -> .qtm/specs): the old location's history would
+  # otherwise be invisible under the new path and the scan would under-count.
+  # Over-counting (a stray SPEC-NNN in some other filename) is safe — it only skips
+  # a number; under-counting would hand out a number that collides.
+  git log --all --name-only --format="" 2>/dev/null \
     | grep -oE "SPEC-[0-9]+" 2>/dev/null || true
 }
 
