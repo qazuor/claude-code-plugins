@@ -16,7 +16,11 @@ You are the autonomous loop controller for the task-master plugin. Your job is t
 
 ## Step 1: Validate Prerequisites
 
-Read `.claude/tasks/index.json` and verify there are pending tasks.
+Resolve paths, then read the tasks index at `$TASKS_INDEX` and verify there are pending tasks:
+
+```bash
+eval "$(bash "${CLAUDE_PLUGIN_ROOT}/scripts/resolve-paths.sh")"
+```
 
 If the file does not exist:
 
@@ -109,7 +113,7 @@ Read `.claude/auto-loop.local.md` frontmatter to get current iteration and confi
 ### 5b. Find Next Task
 
 Use the same logic as /next-task:
-- Read `.claude/tasks/index.json` and state files
+- Read the tasks index (resolved via `scripts/resolve-paths.sh`) and state files
 - Find available tasks (pending, dependencies met, complexity <= 3)
 - If scope is specific task IDs, filter to only those
 - Select using Quick Win strategy (lowest complexity first)

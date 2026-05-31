@@ -23,9 +23,13 @@ You will receive:
 
 ### Step 1: Load Existing Data
 
-1. Read `.claude/specs/index.json` from the project root
+```bash
+eval "$(bash "${CLAUDE_PLUGIN_ROOT}/scripts/resolve-paths.sh")"
+```
+
+1. Read `$SPECS_INDEX` from the project root
    - If the file does not exist, report "No existing specs found. Clean slate -- no overlaps possible." and exit early
-2. Read `.claude/tasks/index.json` from the project root (optional, for task-level overlap)
+2. Read `$TASKS_INDEX` from the project root (optional, for task-level overlap)
 
 ### Step 2: Filter Active Specs
 
@@ -125,7 +129,7 @@ For each overlap found, provide a recommendation:
 
 ### Step 6: Check Task-Level Overlap (Optional)
 
-If `.claude/tasks/index.json` exists, also check for overlap at the task level:
+If `$TASKS_INDEX` exists, also check for overlap at the task level:
 
 1. For each epic in the tasks index with status != "completed":
    - Read its `state.json`
@@ -212,7 +216,7 @@ No meaningful overlap with existing specs. Safe to create a new specification.
 Overlap Analysis Report
 =======================
 
-No existing specs found (.claude/specs/index.json does not exist).
+No existing specs found (the resolved specs index does not exist).
 This is a clean slate -- no overlaps possible.
 
 Recommendation: PROCEED

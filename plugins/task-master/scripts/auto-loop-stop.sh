@@ -6,6 +6,7 @@
 set -euo pipefail
 
 PROJECT_ROOT="${CLAUDE_PROJECT_DIR:-.}"
+eval "$(bash "$(dirname "$0")/resolve-paths.sh")"
 LOOP_FILE="${PROJECT_ROOT}/.claude/auto-loop.local.md"
 
 # Exit silently if no active loop
@@ -32,7 +33,7 @@ if [ "$ITERATION" -gt "$MAX_ITERATIONS" ]; then
 fi
 
 # Check if there are pending tasks in state files
-TASKS_DIR="${PROJECT_ROOT}/.claude/tasks"
+# TASKS_DIR is exported by resolve-paths.sh above
 HAS_PENDING=false
 
 if [ -d "$TASKS_DIR" ] && command -v jq &>/dev/null; then

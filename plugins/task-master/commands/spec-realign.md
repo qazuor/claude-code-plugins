@@ -21,9 +21,13 @@ The user may provide an optional argument:
 - **Spec ID** (e.g., `SPEC-042`): analyze that specific spec
 - **No argument**: infer from context
 
-If no argument is provided:
+If no argument is provided, resolve paths first, then read the index:
 
-1. Read `.claude/tasks/index.json`
+```bash
+eval "$(bash "${CLAUDE_PLUGIN_ROOT}/scripts/resolve-paths.sh")"
+```
+
+1. Read the tasks index at `$TASKS_INDEX`
 2. Check for any epic with status `"in-progress"` — if exactly one, use it
 3. If ambiguous (zero or multiple in-progress), list active epics and ask the user which one to realign
 
@@ -37,15 +41,21 @@ And stop.
 
 ## Step 1: Load Spec Artifacts
 
-Resolve the spec directory: `.claude/specs/SPEC-NNN-slug/`
+Before accessing any files, resolve paths:
+
+```bash
+eval "$(bash "${CLAUDE_PLUGIN_ROOT}/scripts/resolve-paths.sh")"
+```
+
+Resolve the spec directory: `$SPECS_DIR/SPEC-NNN-slug/`
 
 Read ALL of the following (handle missing files gracefully):
 
-- `.claude/specs/SPEC-NNN-slug/spec.md` — the full specification
-- `.claude/specs/SPEC-NNN-slug/metadata.json` — spec metadata
-- `.claude/tasks/SPEC-NNN-slug/state.json` — task execution state
-- `.claude/tasks/SPEC-NNN-slug/TODOs.md` — task checklist (if present)
-- `.claude/tasks/index.json` — global index for cross-spec context
+- `$SPECS_DIR/SPEC-NNN-slug/spec.md` — the full specification
+- `$SPECS_DIR/SPEC-NNN-slug/metadata.json` — spec metadata
+- `$TASKS_DIR/SPEC-NNN-slug/state.json` — task execution state
+- `$TASKS_DIR/SPEC-NNN-slug/TODOs.md` — task checklist (if present)
+- `$TASKS_INDEX` — global index for cross-spec context
 
 Present a loading summary:
 
@@ -257,7 +267,7 @@ Recalculate the `summary` object:
 
 ### 7b. Update task index
 
-In `.claude/tasks/index.json`, update the epic's `progress` field to reflect the new counts.
+In `$TASKS_INDEX`, update the epic's `progress` field to reflect the new counts.
 
 ### 7c. Regenerate TODOs.md
 
@@ -274,10 +284,10 @@ Applied after approval:  N changes
 Skipped (user choice):   N changes
 
 Updated files:
-  .claude/specs/SPEC-042-feature-title/spec.md       (revision history added)
-  .claude/tasks/SPEC-042-feature-title/state.json    (N tasks updated)
-  .claude/tasks/SPEC-042-feature-title/TODOs.md      (regenerated)
-  .claude/tasks/index.json                            (progress updated)
+  <specs-dir>/SPEC-042-feature-title/spec.md       (revision history added)
+  <tasks-dir>/SPEC-042-feature-title/state.json    (N tasks updated)
+  <tasks-dir>/SPEC-042-feature-title/TODOs.md      (regenerated)
+  <tasks-dir>/index.json                            (progress updated)
 
 Remaining work: N tasks still pending (Bucket C items)
 New tasks added: N (Bucket D items approved)

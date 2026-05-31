@@ -21,12 +21,18 @@ Store the spec ID as `SPEC_ID`.
 
 ## Step 0: Locate and Load the Spec
 
-1. Read `.claude/specs/index.json` to find the entry for `SPEC_ID`.
-2. Derive the spec directory: `.claude/specs/<SPEC_ID>-<slug>/`
+Before accessing any files, resolve paths:
+
+```bash
+eval "$(bash "${CLAUDE_PLUGIN_ROOT}/scripts/resolve-paths.sh")"
+```
+
+1. Read the specs index (`$SPECS_INDEX`) to find the entry for `SPEC_ID`.
+2. Derive the spec directory: `$SPECS_DIR/<SPEC_ID>-<slug>/`
 3. Read `spec.md` from that directory. If the file does not exist:
    ```
    ERROR: No spec.md found for SPEC_ID at expected path.
-   Check .claude/specs/index.json for the correct path.
+   Check the resolved specs index for the correct path.
    ```
 4. Read `metadata.json` from the same directory (handle gracefully if missing).
 5. Store the original spec content. All subsequent passes mutate a working copy; the original is preserved for diff generation.
@@ -147,7 +153,7 @@ Additional passes for more complex specs:
 - Are there security implications (auth gaps, missing validation, exposed sensitive data) not addressed?
 
 **Pass 6 — Task Breakdown Quality (if tasks exist):**
-- Read the associated `state.json` from `.claude/tasks/<SPEC_ID>-<slug>/state.json` if it exists.
+- Read the associated `state.json` from `$TASKS_DIR/<SPEC_ID>-<slug>/state.json` if it exists.
 - Are all tasks atomic? (complexity ≤ 3, single clear deliverable)
 - Does every task have an explicit test requirement?
 - Are dependencies correctly modeled?
@@ -206,7 +212,7 @@ Append or update a `## Revision History` section at the end of `spec.md`. Each e
 
 ### 4b. Write updated spec.md
 
-Write the finalized working copy back to `.claude/specs/<SPEC_ID>-<slug>/spec.md`.
+Write the finalized working copy back to `$SPECS_DIR/<SPEC_ID>-<slug>/spec.md`.
 
 ### 4c. Update metadata.json
 

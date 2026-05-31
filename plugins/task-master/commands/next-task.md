@@ -15,7 +15,11 @@ You are the task selector for the task-master plugin. Your job is to find the ne
 
 ## Step 1: Read Task Data
 
-Read `.claude/tasks/index.json` to get the list of all epics and standalone task info.
+```bash
+eval "$(bash "${CLAUDE_PLUGIN_ROOT}/scripts/resolve-paths.sh")"
+```
+
+Read the tasks index (`$TASKS_INDEX`) to get the list of all epics and standalone task info.
 
 If the file does not exist:
 
@@ -25,9 +29,9 @@ No tasks found. Use /spec to create a specification or /new-task to create a sta
 
 And stop.
 
-For each epic in the `epics` array, read `.claude/tasks/{path}/state.json`.
+For each epic in the `epics` array, read `$TASKS_DIR/{path}/state.json`.
 
-If standalone tasks exist (`standalone.total > 0`), read `.claude/tasks/{standalone.path}/state.json`.
+If standalone tasks exist (`standalone.total > 0`), read `$TASKS_DIR/{standalone.path}/state.json`.
 
 ## Step 2: Compute Available Tasks
 
@@ -156,6 +160,8 @@ Ensure the selected task ID exists and is actually available (status pending, de
 In the appropriate `state.json` file, wrap ALL reads and writes in a single `flock` block to prevent a parallel `/next-task` session from picking the same task:
 
 ```bash
+# Resolve $LOCK in this block (each bash block is its own shell).
+eval "$(bash "${CLAUDE_PLUGIN_ROOT}/scripts/resolve-paths.sh")"
 (
   flock -w 10 200 || { echo "index busy, another session holds the lock — retry in a moment"; exit 1; }
 
@@ -179,12 +185,12 @@ In the appropriate `state.json` file, wrap ALL reads and writes in a single `flo
     .summary.inProgress += 1
   ' "$STATE_FILE" > "${STATE_FILE}.tmp" && mv "${STATE_FILE}.tmp" "$STATE_FILE"
 
-) 200>.claude/tasks/.index.lock
+) 200>"$LOCK"
 ```
 
 ### 4c. Update task index
 
-Use the **index-sync skill** to update both `.claude/specs/index.json` and `.claude/tasks/index.json` atomically.  NEVER write one index alone.
+Use the **index-sync skill** to update both the specs index and the tasks index (resolved via `scripts/resolve-paths.sh`) atomically.  NEVER write one index alone.
 
 - For epic tasks: if the epic's current status is a not-yet-started state (`"pending"`, `"draft"`, or `"reserved"`), pass `newStatus: "in-progress"` to index-sync.  (Epics now mirror the spec status, so a freshly created epic is `"draft"`, not `"pending"` — starting its first task must move it to `"in-progress"` from any of these three states, or it would stay stuck.)
 - The index-sync skill wraps its writes in the same `flock` block — no double-locking needed.
@@ -326,4 +332,4 @@ Remember: Task state has been updated.
 - **Errors**: ALWAYS suppress with `2>/dev/null` or `|| true` when files/dirs might not exist.
 - **No visible errors**: The user should NEVER see "Exit code" errors in the output.
 - **Index writes**: ALWAYS update both indexes via the `index-sync` skill.  NEVER write one index alone.
-- **Locking**: ALL index/state mutations (Steps 4b and 4c) MUST happen inside a single `flock` block on `.claude/tasks/.index.lock` with a 10-second timeout.  This prevents two parallel worktrees from claiming the same task simultaneously.
+- **Locking**: ALL index/state mutations (Steps 4b and 4c) MUST happen inside a single `flock` block on `$LOCK` (resolved via `scripts/resolve-paths.sh`) with a 10-second timeout.  This prevents two parallel worktrees from claiming the same task simultaneously.

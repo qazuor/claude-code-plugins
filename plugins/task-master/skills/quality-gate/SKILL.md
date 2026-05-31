@@ -193,13 +193,15 @@ echo "$taskJson" | jq -e '
 Wrap the state.json mutation in a `flock` block to prevent concurrent sessions from corrupting the file:
 
 ```bash
+eval "$(bash "${CLAUDE_PLUGIN_ROOT}/scripts/resolve-paths.sh")"
+
 (
   flock -w 10 200 || { echo "index busy, another session holds the lock — retry in a moment"; exit 1; }
 
   # Write qualityGate results + status update inside the lock
   jq ... "$STATE_FILE" > "${STATE_FILE}.tmp" && mv "${STATE_FILE}.tmp" "$STATE_FILE"
 
-) 200>.claude/tasks/.index.lock
+) 200>"$LOCK"
 ```
 
 Update the task's `qualityGate` field in state.json:
@@ -291,17 +293,18 @@ After updating the task:
    a. The epic/spec is fully complete
    b. Read the spec's metadata.json
    c. Update metadata status to `"completed"` and set `completed` timestamp
-   d. Use the **index-sync skill** to update BOTH `.claude/specs/index.json` AND `.claude/tasks/index.json` atomically.  NEVER write one index alone.
+   d. Use the **index-sync skill** to update BOTH `$SPECS_INDEX` AND `$TASKS_INDEX` atomically.  NEVER write one index alone.
       - `specId`: the completed spec ID
       - `newStatus`: `"completed"`
       - `newProgress`: `"N/N"` (all tasks done)
    e. The index-sync call MUST happen inside the same `flock` block that wraps the metadata.json write:
       ```bash
+      eval "$(bash "${CLAUDE_PLUGIN_ROOT}/scripts/resolve-paths.sh")"
       (
         flock -w 10 200 || { echo "index busy — retry"; exit 1; }
         # write metadata.json here
         # then call index-sync jq writes directly inside this block
-      ) 200>.claude/tasks/.index.lock
+      ) 200>"$LOCK"
       ```
    f. Report epic completion
 
@@ -486,4 +489,4 @@ If no config file exists, the three standard checks (lint, typecheck, tests) are
 - **No visible errors**: The user should NEVER see "Exit code" errors in the output.
 - **Pre-Write Validation**: Run invariant checks (Step 3.5) before EVERY state.json write.  ABORT on violation — never write bad data.
 - **Index writes**: ALWAYS update both indexes via the `index-sync` skill (Step 7).  NEVER write one index alone.
-- **Locking**: ALL index/state mutations (Steps 4 and 7) MUST happen inside a single `flock` block on `.claude/tasks/.index.lock` with a 10-second timeout.  This prevents concurrent sessions from corrupting state.
+- **Locking**: ALL index/state mutations (Steps 4 and 7) MUST happen inside a single `flock` block on `$LOCK` (resolved via `scripts/resolve-paths.sh`) with a 10-second timeout.  This prevents concurrent sessions from corrupting state.

@@ -1,7 +1,7 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
   "title": "Task Master Specs Index",
-  "description": "Schema for the specifications index (.claude/specs/index.json)",
+  "description": "Schema for the specifications index (resolved via scripts/resolve-paths.sh; default location: .claude/specs/index.json)",
   "type": "object",
   "required": ["version", "specs"],
   "properties": {

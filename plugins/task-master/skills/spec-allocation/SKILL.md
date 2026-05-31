@@ -4,7 +4,7 @@ description: >-
   Allocate the next SPEC-NNN number without collisions across parallel worktrees,
   branches, and machines. Uses a git + index scan plus an OPTIONAL engram registry
   (best-effort — falls back to git+index if engram is unavailable). Trigger BEFORE
-  creating any `.claude/specs/SPEC-NNN-<slug>/` directory: when a new spec is
+  creating any `<specs-dir>/SPEC-NNN-<slug>/` directory (resolved via `scripts/resolve-paths.sh`): when a new spec is
   requested via `/spec`, a direct ask, or any spec-creation flow. Works in any
   project; the repo's `index.json` is a derived mirror, never the source of truth.
 ---
@@ -33,7 +33,7 @@ the **Activate** flow on the first commit that touches the spec dir, and the
 Defaults work with zero config. To override, read `<repo-root>/.claude/project.config.json`:
 
 - `specAllocation.projectName` — registry namespace (default: `basename` of the repo root).
-- `specAllocation.specsDir` — where spec dirs live (default: `.claude/specs`).
+- `specAllocation.specsDir` — where spec dirs live (default: resolved from `scripts/resolve-paths.sh`; legacy fallback is `.claude/specs`).
 
 Never invent config silently; if a value is missing, use the default.
 
@@ -45,7 +45,12 @@ Never invent config silently; if a value is missing, use the default.
 - `slug` — URL-friendly form of the title (lowercase, hyphens, max 50 chars). The
   caller derives it from `title` and passes it in.
 
-Determine `PROJECT` (config or repo-root basename) and `SPECS_DIR` (config or `.claude/specs`).
+Determine `PROJECT` (config or repo-root basename) and `SPECS_DIR` using the path resolver:
+
+```bash
+eval "$(bash "${CLAUDE_PLUGIN_ROOT}/scripts/resolve-paths.sh")"
+# SPECS_DIR is now set to the resolved absolute path
+```
 
 ### Source 1 + 2 — git + index scan (ALWAYS run)
 

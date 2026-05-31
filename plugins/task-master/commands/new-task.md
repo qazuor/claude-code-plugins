@@ -55,7 +55,11 @@ Create this task? (yes/edit/cancel)
 
 ### 2a. Read existing state
 
-Read `.claude/tasks/standalone/state.json` if it exists.
+```bash
+eval "$(bash "${CLAUDE_PLUGIN_ROOT}/scripts/resolve-paths.sh")"
+```
+
+Read `$TASKS_DIR/standalone/state.json` if it exists.
 
 If the file exists, find the highest task ID number among all existing tasks in the `tasks` array. The new task ID will be `T-NNN` where NNN is the next number, zero-padded to 3 digits.
 
@@ -63,7 +67,7 @@ If the file does not exist, the first task ID will be `T-001`.
 
 ### 2b. Also check epic tasks for global uniqueness
 
-Read `.claude/tasks/index.json` if it exists. For each epic, read its `state.json` and find the highest task ID across all epics. The new standalone task ID must be higher than ANY existing task ID across the entire system to ensure global uniqueness.
+Read `$TASKS_INDEX` if it exists. For each epic, read its `state.json` and find the highest task ID across all epics. The new standalone task ID must be higher than ANY existing task ID across the entire system to ensure global uniqueness.
 
 Example: if SPEC-001 has tasks T-001 through T-010, and standalone has T-011, the next standalone task should be T-012.
 
@@ -71,11 +75,11 @@ Example: if SPEC-001 has tasks T-001 through T-010, and standalone has T-011, th
 
 ### 3a. Ensure directory exists
 
-The standalone tasks live in `.claude/tasks/standalone/`. Create this directory if it does not exist.
+The standalone tasks live in `$TASKS_DIR/standalone/`. Create this directory if it does not exist.
 
 ### 3b. Initialize or update state.json
 
-If `.claude/tasks/standalone/state.json` does not exist, create it:
+If `$TASKS_DIR/standalone/state.json` does not exist, create it:
 
 ```json
 {
@@ -139,7 +143,7 @@ Recalculate the `summary` object:
 
 ## Step 4: Update Global Index
 
-Read `.claude/tasks/index.json`. If it does not exist, create it:
+Read `$TASKS_INDEX`. If it does not exist, create it:
 
 ```json
 {
@@ -158,11 +162,11 @@ Update the `standalone` object:
 - `total`: new total count of standalone tasks
 - `completed`: count of completed standalone tasks
 
-Write the updated index back to `.claude/tasks/index.json`.
+Write the updated index back to `$TASKS_INDEX`.
 
 ## Step 5: Generate/Update TODOs.md
 
-Create or update `.claude/tasks/standalone/TODOs.md` with all standalone tasks grouped by phase:
+Create or update `$TASKS_DIR/standalone/TODOs.md` with all standalone tasks grouped by phase:
 
 ```markdown
 # Standalone Tasks
@@ -215,8 +219,8 @@ Task created successfully!
   Phase:       core
   Status:      pending
 
-  Location:    .claude/tasks/standalone/state.json
-  TODOs:       .claude/tasks/standalone/TODOs.md
+  Location:    <tasks-dir>/standalone/state.json
+  TODOs:       <tasks-dir>/standalone/TODOs.md
 
   Run /next-task to start working on it, or /tasks to see the full dashboard.
 ```

@@ -114,7 +114,11 @@ Example conversion:
 
 ### Step 4: Generate Spec ID
 
-1. Read `.claude/specs/index.json` from the project root
+```bash
+eval "$(bash "${CLAUDE_PLUGIN_ROOT}/scripts/resolve-paths.sh")"
+```
+
+1. Read `$SPECS_INDEX` from the project root
 2. If the file does not exist, the first spec ID is `SPEC-001`
 3. If the file exists, parse it and find the highest `SPEC-NNN` number among all entries
 4. Increment by 1 and zero-pad to 3 digits: `SPEC-002`, `SPEC-003`, etc.
@@ -135,7 +139,7 @@ Examples:
 
 ### Step 6: Create Spec Directory
 
-Create the directory: `.claude/specs/SPEC-NNN-slug/`
+Create the directory: `$SPECS_DIR/SPEC-NNN-slug/`
 
 ### Step 7: Write spec.md
 
@@ -151,11 +155,11 @@ Fill the template with extracted content. Replace template variables:
 
 Replace all `[placeholder]` text in template sections with extracted content. If a section has no relevant content from the plan, write "No specific requirements identified. To be determined during implementation." rather than leaving the placeholder.
 
-Write the completed content to `.claude/specs/SPEC-NNN-slug/spec.md`.
+Write the completed content to `$SPECS_DIR/SPEC-NNN-slug/spec.md`.
 
 ### Step 8: Write metadata.json
 
-Create `.claude/specs/SPEC-NNN-slug/metadata.json` with this structure:
+Create `$SPECS_DIR/SPEC-NNN-slug/metadata.json` with this structure:
 
 ```json
 {
@@ -220,7 +224,7 @@ Only proceed to Step 9 once all four gates pass or remaining gaps are explicitly
 
 ### Step 9: Update index.json
 
-**Use the `index-sync` skill** to add the new spec entry to BOTH `.claude/specs/index.json` and `.claude/tasks/index.json` atomically.  NEVER write one index alone.
+**Use the `index-sync` skill** to add the new spec entry to BOTH `$SPECS_INDEX` and `$TASKS_INDEX` atomically.  NEVER write one index alone.
 
 Call index-sync with:
 - `specId`: the generated SPEC-NNN
@@ -255,7 +259,7 @@ Expected `specs/index.json` structure after the write:
 
 After completing all steps, report to the user:
 
-1. The path to the created spec directory (e.g., `.claude/specs/SPEC-003-user-authentication/`)
+1. The path to the created spec directory (e.g., `<specs-dir>/SPEC-003-user-authentication/`)
 2. The spec ID assigned
 3. The complexity level used
 4. The type inferred
@@ -273,7 +277,7 @@ Spec generated successfully!
   Type:       feature
   Complexity: high
   Template:   spec-full
-  Path:       .claude/specs/SPEC-003-user-authentication-system/
+  Path:       <specs-dir>/SPEC-003-user-authentication-system/
 
   Content summary:
   - 4 user stories with acceptance criteria
@@ -283,7 +287,7 @@ Spec generated successfully!
   - API endpoints: 5 new routes
 
   Next steps:
-  1. Review the spec at .claude/specs/SPEC-003-user-authentication-system/spec.md
+  1. Review the spec at <specs-dir>/SPEC-003-user-authentication-system/spec.md
   2. Once approved, generate ultra-granular atomic tasks organized by phase
   3. Review and approve the task breakdown
   4. Start development with /next-task, updating state after each task
@@ -292,7 +296,7 @@ Spec generated successfully!
 ## Error Handling
 
 - If the plan content is empty or too brief (< 50 characters): Ask the user to provide more detail
-- If `.claude/specs/` directory doesn't exist: Create it
+- If the resolved specs directory (`$SPECS_DIR`) doesn't exist: Create it
 - If template files cannot be found at `${CLAUDE_PLUGIN_ROOT}/templates/`: Report the error and suggest checking plugin installation
 - If the plan content is ambiguous about complexity: Default to `medium` and note the assumption
 

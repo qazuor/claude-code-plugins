@@ -6,8 +6,8 @@
 set -euo pipefail
 
 PROJECT_ROOT="${CLAUDE_PROJECT_DIR:-.}"
-TASKS_DIR="${PROJECT_ROOT}/.claude/tasks"
-INDEX_FILE="${TASKS_DIR}/index.json"
+eval "$(bash "$(dirname "$0")/resolve-paths.sh")"
+INDEX_FILE="$TASKS_INDEX"
 
 # Check if task index exists
 if [ ! -f "$INDEX_FILE" ]; then
