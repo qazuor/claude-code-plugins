@@ -93,7 +93,7 @@ Execute each check sequentially. For each check:
    - `coverage`: (only for test check) Extract coverage percentage if available
 
 Run checks in this order:
-1. **complexity-check** - Verify task complexity ≤ 4 (pre-flight check)
+1. **complexity-check** - Verify task complexity ≤ 3 (pre-flight check)
 2. **lint** - Code style and quality
 3. **typecheck** - Type safety
 4. **tests** - Test suite execution
@@ -103,16 +103,16 @@ If a required check fails, continue running remaining checks (to give a complete
 
 ### Complexity Check (Pre-flight)
 
-**CRITICAL: This is the first check and acts as a safety net.** Before running any other quality checks, verify that the task's complexity score is ≤ 4.
+**CRITICAL: This is the first check and acts as a safety net.** Before running any other quality checks, verify that the task's complexity score is ≤ 3.
 
 - Read the task's `complexity` field from state.json
-- If complexity > 4: gate FAILS immediately with message:
+- If complexity > 3: gate FAILS immediately with message:
   ```
-  FAIL: Task complexity {score} exceeds maximum 4.
+  FAIL: Task complexity {score} exceeds maximum 3.
   This task is too complex for atomic execution and must be decomposed first.
-  Use /replan to split this task into smaller tasks with complexity ≤ 4.
+  Use /replan to split this task into smaller tasks with complexity ≤ 3.
   ```
-- If complexity ≤ 4: check PASSES, continue to lint check
+- If complexity ≤ 3: check PASSES, continue to lint check
 
 This prevents any task that slipped through the multi-pass decomposition from being completed without proper splitting.
 
@@ -233,7 +233,7 @@ After updating the task:
 Quality Gate Results for T-003
 ==============================
 
-  complexity:   PASS (3/4 max)
+  complexity:   PASS (3/3 max)
   lint:         PASS
   typecheck:    PASS
   tests:        PASS (coverage: 94.2%)
@@ -245,11 +245,11 @@ Task T-003 marked as COMPLETED.
 Progress: 3/8 tasks (37.5%)
 
 Newly unblocked tasks:
-  - T-005 (complexity: 4) - Create search API endpoint
+  - T-005 (complexity: 3) - Create search API endpoint
   - T-006 (complexity: 3) - Add search page component
 
 Suggested next task:
-  T-005 (complexity: 4) - Create search API endpoint
+  T-005 (complexity: 3) - Create search API endpoint
   (on the critical path, unblocks T-007)
 
 Remember: Commit your completed work (implementation + tests) with /commit before starting the next task.
@@ -261,7 +261,7 @@ Remember: Commit your completed work (implementation + tests) with /commit befor
 Quality Gate Results for T-003
 ==============================
 
-  complexity:   PASS (3/4 max)
+  complexity:   PASS (3/3 max)
   lint:         FAIL
   typecheck:    PASS
   tests:        FAIL
@@ -301,16 +301,16 @@ Fix the issues above and re-run the quality gate.
 Quality Gate Results for T-009
 ==============================
 
-  complexity:   FAIL (6/4 max)
+  complexity:   FAIL (6/3 max)
   lint:         SKIPPED
   typecheck:    SKIPPED
   tests:        SKIPPED
   tests-added:  SKIPPED
 
-Quality gate FAILED. Task T-009 has complexity 6 (maximum: 4).
+Quality gate FAILED. Task T-009 has complexity 6 (maximum: 3).
 
 This task is too complex for atomic execution and must be decomposed first.
-Use /replan to split this task into smaller tasks with complexity ≤ 4.
+Use /replan to split this task into smaller tasks with complexity ≤ 3.
 ```
 
 ### Epic Completion
@@ -319,7 +319,7 @@ Use /replan to split this task into smaller tasks with complexity ≤ 4.
 Quality Gate Results for T-008
 ==============================
 
-  complexity:   PASS (2/4 max)
+  complexity:   PASS (2/3 max)
   lint:         PASS
   typecheck:    PASS
   tests:        PASS (coverage: 96.1%)

@@ -149,15 +149,15 @@ Are you sure? (yes/no)
 
 ### Complexity Validation
 
-**Maximum complexity for atomic tasks is 4.** If the user sets complexity > 4:
+**Maximum complexity for atomic tasks is 3.** If the user sets complexity > 3:
 
 ```
-⚠ WARNING: Complexity {value} exceeds the maximum of 4 for atomic tasks.
+⚠ WARNING: Complexity {value} exceeds the maximum of 3 for atomic tasks.
 
-Tasks with complexity > 4 cannot be started and will be blocked by the quality gate.
+Tasks with complexity > 3 cannot be started and will be blocked by the quality gate.
 Options:
   (a) Keep complexity {value} — task will be flagged for splitting via /replan
-  (b) Set complexity to 4 — accept as-is at the ceiling
+  (b) Set complexity to 3 — accept as-is at the ceiling
   (c) Split this task now — decompose into smaller tasks (recommended)
 
 Choose an option:
@@ -248,11 +248,11 @@ If the user wants to split a task into multiple independent tasks:
 2. Transfer the original task's dependencies to the new tasks appropriately
 3. Cancel the original task (Option 2)
 4. Score the new tasks using the complexity-scorer criteria
-5. **If any new task has complexity > 4**, warn the user and offer to split further:
+5. **If any new task has complexity > 3**, warn the user and offer to split further:
    ```
-   ⚠ New task T-013 has complexity 5 (max: 4). Split further? (yes/no)
+   ⚠ New task T-013 has complexity 5 (max: 3). Split further? (yes/no)
    ```
-6. Repeat splitting until all resulting tasks have complexity ≤ 4 or the user explicitly accepts
+6. Repeat splitting until all resulting tasks have complexity ≤ 3 or the user explicitly accepts
 7. Walk the user through this process step by step
 
 ## Step 3: Apply Changes

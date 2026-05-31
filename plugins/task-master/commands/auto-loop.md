@@ -110,7 +110,7 @@ Read `.claude/auto-loop.local.md` frontmatter to get current iteration and confi
 
 Use the same logic as /next-task:
 - Read `.claude/tasks/index.json` and state files
-- Find available tasks (pending, dependencies met, complexity <= 4)
+- Find available tasks (pending, dependencies met, complexity <= 3)
 - If scope is specific task IDs, filter to only those
 - Select using Quick Win strategy (lowest complexity first)
 

@@ -31,7 +31,7 @@ You will receive:
 
 ## Maximum Complexity Threshold
 
-**All final tasks MUST have complexity ≤ 4.** Any task scoring above 4 is too complex for atomic execution and must be decomposed further. The decomposition is ONLY complete when every task has complexity ≤ 4.
+**All final tasks MUST have complexity ≤ 3.** Any task scoring above 3 is too complex for atomic execution and must be decomposed further. The decomposition is ONLY complete when every task has complexity ≤ 3.
 
 ## Process: Multi-Pass Progressive Decomposition
 
@@ -40,8 +40,8 @@ Instead of producing perfect atomic tasks in one shot, use **multiple passes** o
 ```
 Pass 1 (Macro):   Feature → Major tasks (high-level breakdown, complexity 5-8 expected)
 Pass 2 (Split):   Major tasks → Sub-tasks (split each major task into smaller pieces)
-Pass 3+ (Refine): Score all sub-tasks → Re-split any with complexity > 4
-Repeat until ALL tasks ≤ 4 complexity (max 5 passes total)
+Pass 3+ (Refine): Score all sub-tasks → Re-split any with complexity > 3
+Repeat until ALL tasks ≤ 3 complexity (max 5 passes total)
 ```
 
 ### Pass 1: Macro Breakdown
@@ -62,32 +62,32 @@ Take each major task from Pass 1 and decompose it into smaller sub-tasks. At thi
 
 - Assign phases and dependencies
 - Include test requirements in each task
-- Target complexity 3-4 per task, but some may still be 5-6
+- Target complexity 2-3 per task, but some may still be 4-5
 
 ### Pass 3+: Refine (Scoring Loop)
 
 1. Score every task using complexity-scorer criteria
-2. Collect all tasks with complexity > 4
-3. For each task with complexity > 4, decompose it further:
+2. Collect all tasks with complexity > 3
+3. For each task with complexity > 3, decompose it further:
    - Split by layer (separate DB from service from API)
    - Split by concern (separate validation from core logic)
    - Split by file count (if touching 5+ files, split into per-file tasks)
    - Split by test type (separate unit test setup from integration tests)
 4. Re-score the newly created sub-tasks
-5. Repeat until ALL tasks have complexity ≤ 4
+5. Repeat until ALL tasks have complexity ≤ 3
 
 ### Iteration Safety
 
-**Maximum 5 passes total.** If after 5 passes some tasks still exceed complexity 4:
+**Maximum 5 passes total.** If after 5 passes some tasks still exceed complexity 3:
 
 - Flag them with `"splitRequired": true` in the task metadata
-- Add a warning note to the task description: `"⚠ COMPLEXITY {score} exceeds maximum 4. Manual review required — use /replan to split before starting."`
+- Add a warning note to the task description: `"⚠ COMPLEXITY {score} exceeds maximum 3. Manual review required — use /replan to split before starting."`
 - Report the flagged tasks in the output summary
 
 ### Completion Validation
 
 The decomposition is **ONLY complete** when:
-1. Every task has complexity ≤ 4, OR
+1. Every task has complexity ≤ 3, OR
 2. Maximum iterations (5) reached and remaining high-complexity tasks are flagged for manual review
 
 ### Organize Work Units by Phase
@@ -247,7 +247,7 @@ Before returning tasks, validate:
 
 1. **No orphan dependencies**: Every ID in `blockedBy`/`blocks` refers to an existing task
 2. **No circular dependencies**: A does not (transitively) depend on itself
-3. **Complexity ceiling**: Every task MUST have complexity ≤ 4. Any task with complexity > 4 must be decomposed further or flagged for manual review
+3. **Complexity ceiling**: Every task MUST have complexity ≤ 3. Any task with complexity > 3 must be decomposed further or flagged for manual review
 4. **Phase consistency**: Tasks in earlier phases don't depend on later-phase tasks
 5. **Complete coverage**: All aspects of the feature are covered
 6. **Granularity check**: Prefer more small tasks over fewer large ones. There is no maximum — 30+ tasks is perfectly acceptable if each is atomic and clear
