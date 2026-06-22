@@ -52,46 +52,70 @@ eval "$(bash "${CLAUDE_PLUGIN_ROOT}/scripts/resolve-paths.sh")"
 # SPECS_DIR is now set to the resolved absolute path
 ```
 
-### Source 1 + 2 — git + index scan (ALWAYS run)
+### Source 1 + 2 + 3 — index + git + remote scan (ALWAYS run)
 
-Run `scripts/scan-spec-numbers.sh "$SPECS_DIR"`. It returns the highest existing
-SPEC number across the repo's `index.json` AND `git log --all` (catches dirs created
-on never-merged branches). Let `SCAN_MAX` be its output.
+Run the scan script with its FULL path (it lives in THIS skill's `scripts/` dir,
+which is NOT the same as `${CLAUDE_PLUGIN_ROOT}/scripts/` where `resolve-paths.sh`
+lives — passing the bare `scripts/...` to bash from the wrong cwd is what made
+earlier runs silently fall back to an improvised scan):
+
+```bash
+bash "${CLAUDE_PLUGIN_ROOT}/skills/spec-allocation/scripts/scan-spec-numbers.sh" "$SPECS_DIR"
+```
+
+It returns the highest existing SPEC number across (1) the repo's `index.json`,
+(2) `git log --all` (local branches, incl. never-merged dirs), and (3)
+`git ls-remote` — the remote's branch heads AND `spec-reserved-SPEC-*` tags, even
+when not fetched locally. Source 3 is what surfaces numbers other agents reserved
+on other machines/worktrees before any commit reaches this clone. Let `SCAN_MAX`
+be its output.
 
 `CANDIDATE = SCAN_MAX + 1`.
 
-### Source 3 — engram registry (OPTIONAL, best-effort)
+### Reserve the number — ATOMIC git tag (PRIMARY, the real lock)
 
-> **Engram is optional.** If the engram MCP tools are not available, skip this
-> source, log one line, and proceed with the scan candidate. NEVER block spec
-> creation on engram.
+This is the step that actually prevents collisions. Run:
 
-1. `mem_search(query: "spec-registry/<PROJECT>", project: "<PROJECT>")`.
-2. If found, `mem_get_observation(id: <id>)` and parse `lastNumber`. Let `ENGRAM_MAX = lastNumber`.
-3. `CANDIDATE = max(CANDIDATE, ENGRAM_MAX + 1)`.
-4. If not found, `ENGRAM_MAX = 0` — keep the scan candidate.
-5. On any error / unavailable tools, warn and continue:
-   `[spec-alloc] engram unavailable — using index.json + git scan only (SPEC-NNN).`
+```bash
+RESERVED=$(bash "${CLAUDE_PLUGIN_ROOT}/skills/spec-allocation/scripts/reserve-spec-number.sh" "$CANDIDATE")
+RC=$?
+```
 
-### Stale-reservation check (only if the registry was found)
+The script pushes a `spec-reserved-SPEC-N` tag to the remote. Pushing a tag that
+already exists fails server-side (tags are immutable), so this is a **distributed
+atomic compare-and-set**: it tries `CANDIDATE`, and on any lost race it advances to
+`CANDIDATE+1`, `+2`, ... until a push succeeds, then prints the number it actually
+secured. **Use `$RESERVED` as the allocated number — it may be higher than
+`$CANDIDATE`** if another agent reserved in the gap between your scan and your push.
 
-If `allocations` contains an entry with `status: reserved` older than 14 days, ask the
-user whether to **resume** it (reuse that number+slug), **abandon** it (mark
-`abandoned`, do not reuse the number), or **skip** (ignore and allocate fresh).
-Never silently reuse or recycle a reserved number.
+- `RC=0` → `$RESERVED` is yours; the tag is permanent (no release step — it
+  guarantees the number is never reused, mirroring the `archived` rule).
+- `RC=3` → remote unreachable. Fall back to scan-only: use `$CANDIDATE`, and warn
+  loudly `[spec-alloc] remote unreachable — number not atomically reserved; risk of
+  collision if another agent is allocating concurrently.` Never block on this.
 
-### Reserve the number (OPTIONAL — only if engram is available)
+> Why not engram for the lock: engram is a semantic store with last-writer-wins
+> upserts and non-deterministic recall. Two parallel agents could both "reserve"
+> the same number and silently clobber each other (this is exactly the SPEC-259
+> double-allocation that motivated this change). The remote ref namespace is a
+> single source of truth with atomic server-side ref creation — the correct lock.
+
+### Engram cross-check (OPTIONAL, informational only)
+
+Engram is no longer the lock — the tag above is. Engram is kept ONLY as a
+human-readable audit trail and is best-effort. If the MCP tools are unavailable,
+skip silently. After a successful tag reservation, record it:
 
 ```
 mem_save(
-  title: "Reserve SPEC-<CANDIDATE> for <slug>",
+  title: "Reserve SPEC-<RESERVED> for <slug>",
   type: "decision",
   scope: "project",
   topic_key: "spec-registry/<PROJECT>",
   content: {
-    "lastNumber": <CANDIDATE>,
+    "lastNumber": <RESERVED>,
     "allocations": [ ...existing entries...,
-      { "specId": "SPEC-<CANDIDATE>", "slug": "<slug>", "status": "reserved",
+      { "specId": "SPEC-<RESERVED>", "slug": "<slug>", "status": "reserved",
         "reservedAt": "<ISO>", "branch": "<current branch>", "worktree": "<abs path>" }
     ]
   }
@@ -99,13 +123,8 @@ mem_save(
 ```
 
 Read the full existing content first and APPEND to `allocations` — never drop prior
-entries. The `topic_key` upserts, so the latest save wins.
-
-**Read-back (makes "first writer wins" real):** after saving, re-read the registry
-(`mem_search` + `mem_get_observation`). If another session already reserved your
-`CANDIDATE` number between your scan and your save, increment to the next free number
-and reserve again. Without this step the second concurrent writer never notices the
-collision. Skip silently if engram is unavailable.
+entries. Do NOT rely on engram recall to detect collisions; the tag push already
+did. A failure here is non-fatal and never changes the allocated number.
 
 ### Output
 
