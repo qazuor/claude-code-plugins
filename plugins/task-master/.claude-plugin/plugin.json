@@ -1,6 +1,6 @@
 {
   "name": "task-master",
-  "version": "2.4.0",
+  "version": "2.4.1",
   "description": "End-to-end project planning with specs, task decomposition, dependency graphs, quality gates, autonomous loops, and guardrails",
   "author": {
     "name": "Qazuor",
