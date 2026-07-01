@@ -1,17 +1,18 @@
 ---
 name: spec-allocation
 description: >-
-  Allocate the next SPEC-NNN number without collisions across parallel worktrees,
-  branches, and machines. Uses a git + index scan plus an OPTIONAL engram registry
-  (best-effort — falls back to git+index if engram is unavailable). Trigger BEFORE
-  creating any `<specs-dir>/SPEC-NNN-<slug>/` directory (resolved via `scripts/resolve-paths.sh`): when a new spec is
-  requested via `/spec`, a direct ask, or any spec-creation flow. Works in any
-  project; the repo's `index.json` is a derived mirror, never the source of truth.
+  Allocate the next spec identifier without collisions across parallel worktrees,
+  branches, and machines. On the LOCAL backend (default): a git + index scan plus
+  an OPTIONAL engram registry, allocating SPEC-NNN. On the LINEAR backend: creates
+  the Linear issue directly and uses its returned ID (e.g. HOS-12) — Linear's own
+  atomic issue creation IS the collision lock, no scan/tag/engram needed. Trigger
+  BEFORE creating any spec directory (resolved via `scripts/resolve-paths.sh`):
+  when a new spec is requested via `/spec`, a direct ask, or any spec-creation flow.
 ---
 
 # Spec allocation skill
 
-Hands out the next `SPEC-NNN` number and reserves it so two parallel sessions
+Hands out the next spec identifier and reserves it so two parallel sessions
 (different terminals / worktrees / machines) never grab the same one.
 
 This skill is the **single source of the allocation protocol**. `/spec` and any
@@ -20,24 +21,73 @@ other spec-creation flow delegate here instead of reimplementing the scan.
 ## When to run
 
 Run the **Allocate** flow exactly once, BEFORE creating the spec directory, on any
-of: `/spec`, "create a spec for X", picking up a spec that has no number yet. Run
-the **Activate** flow on the first commit that touches the spec dir, and the
-**Status** flow when a spec ships or is retired.
+of: `/spec`, "create a spec for X", picking up a spec that has no number yet. On
+the LOCAL backend, also run the **Activate** flow on the first commit that touches
+the spec dir, and the **Status** flow when a spec ships or is retired (on the
+LINEAR backend, these are superseded by `index-sync` — see below).
 
-## Config (optional)
+## Config
 
 > This skill ships inside the task-master plugin (`plugins/task-master/skills/spec-allocation/`)
 > and is symlinked to `~/.claude/skills/spec-allocation` so it can be invoked globally,
 > outside `/spec`.
 
-Defaults work with zero config. To override, read `<repo-root>/.claude/project.config.json`:
+First, resolve the backend: `eval "$(bash "${CLAUDE_PLUGIN_ROOT}/scripts/resolve-paths.sh")"` and check `$TM_BACKEND`.
 
-- `specAllocation.projectName` — registry namespace (default: `basename` of the repo root).
-- `specAllocation.specsDir` — where spec dirs live (default: resolved from `scripts/resolve-paths.sh`; legacy fallback is `.claude/specs`).
+- `TM_BACKEND=linear` → run **Flow 1 (Linear)** below. `$TM_LINEAR_TEAM` /
+  `$TM_LINEAR_TEAM_KEY` are required (resolve-paths.sh already validates they're
+  set and aborts otherwise).
+- `TM_BACKEND=local` (default) → run **Flow 1 (Local)** below, unchanged. Optional
+  overrides in `<repo-root>/.claude/project.config.json`:
+  - `specAllocation.projectName` — registry namespace (default: `basename` of the repo root).
+  - `specAllocation.specsDir` — where spec dirs live (default: resolved from `scripts/resolve-paths.sh`; legacy fallback is `.claude/specs`).
 
 Never invent config silently; if a value is missing, use the default.
 
-## Flow 1 — Allocate (mandatory before creating a spec dir)
+## Flow 1 (Linear) — Allocate via Linear issue creation
+
+### Inputs
+
+- `title` — the spec title (human-readable).
+- `slug` — URL-friendly form of the title (lowercase, hyphens, max 50 chars). The
+  caller derives it from `title` and passes it in.
+- `labels` — optional extra labels beyond `kind-spec` (e.g. area-* labels the
+  caller has already inferred from the request).
+
+### Steps
+
+1. `ToolSearch` with query `select:mcp__linear__save_issue` if not already loaded.
+2. Create the issue:
+   ```
+   mcp__linear__save_issue({
+     title: "Implement spec: <title>",
+     team: "$TM_LINEAR_TEAM",
+     labels: ["kind-spec", ...extra labels]
+   })
+   ```
+3. The response's `id` field (e.g. `"HOS-12"`) IS the allocated identifier. Linear's
+   issue creation is already server-side atomic — there is no scan, no git tag, and
+   no engram cross-check to do here. This mirrors exactly why the local backend
+   trusts the git-tag push over engram (see "Why not engram for the lock" in Flow 1
+   Local below): a single authoritative atomic-create call beats any client-side
+   scan-then-reserve dance.
+
+### Output
+
+Return the Linear identifier (e.g. `HOS-12`) and the directory path
+`<SPECS_DIR>/HOS-12-<slug>/` (using `$TM_LINEAR_TEAM_KEY` as the prefix, not the
+literal string `HOS`). ONLY THEN does the caller create the directory.
+
+### Status transitions in Linear mode
+
+Flow 2 (Activate) and Flow 3 (Status transitions) below are LOCAL-BACKEND ONLY.
+On the Linear backend, every status change (reserved→active, active→completed,
+etc.) is just a normal spec-lifecycle event — call the `index-sync` skill, which
+branches to its own Linear-mode process and updates the issue's state directly.
+There is no separate allocation-registry bookkeeping to maintain, because Linear
+already IS that registry.
+
+## Flow 1 (Local) — Allocate via git+index scan
 
 ### Inputs
 
@@ -132,13 +182,13 @@ Return the zero-padded number (e.g. `042`) and the directory path
 `<SPECS_DIR>/SPEC-<CANDIDATE>-<slug>/`. The slug is URL-friendly (lowercase, hyphens,
 max 50 chars). ONLY THEN does the caller create the directory.
 
-## Flow 2 — Activate (on first commit touching the spec dir)
+## Flow 2 — Activate (LOCAL BACKEND ONLY, on first commit touching the spec dir)
 
 Upsert the same `spec-registry/<PROJECT>` entry, flipping that spec's allocation from
 `reserved` to `active`. This prevents stale-reservation accumulation. Skip silently
 if engram is unavailable.
 
-## Flow 3 — Status transitions
+## Flow 3 — Status transitions (LOCAL BACKEND ONLY)
 
 Upsert the allocation entry (engram-optional) on lifecycle changes:
 
@@ -165,5 +215,7 @@ Upsert the allocation entry (engram-optional) on lifecycle changes:
 
 ## What this skill does NOT do
 
-It allocates the number and maintains the registry only. Creating the spec dir,
-writing `spec.md` / `metadata.json`, and generating tasks stay with the caller.
+It allocates the identifier and maintains the registry only. Creating the spec dir,
+writing `spec.md` / `metadata.json`, and generating tasks stay with the caller. On
+the Linear backend, it also does not check for duplicate/overlapping specs before
+creating the issue — that's `overlap-detector`'s job, run before this skill.

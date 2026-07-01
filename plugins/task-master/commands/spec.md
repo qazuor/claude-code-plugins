@@ -135,13 +135,19 @@ After all questions are answered, present a summary of the plan:
 
 Before creating a new spec, check for overlaps with existing specifications and tasks.
 
-### 1a. Read existing indexes
+### 1a. Read existing registry
 
 ```bash
 eval "$(bash "${CLAUDE_PLUGIN_ROOT}/scripts/resolve-paths.sh")"
 ```
 
-Read the following files (they may not exist yet -- handle gracefully):
+**If `$TM_BACKEND=linear`**: `ToolSearch` for `select:mcp__linear__list_issues`, then
+`mcp__linear__list_issues({ team: "$TM_LINEAR_TEAM", labels: ["kind-spec", "kind-needs-spec"] })`.
+This IS the registry — there is no local index to read. If it returns zero issues,
+skip overlap analysis and proceed to Step 2.
+
+**If `$TM_BACKEND=local`** (default): read the following files (they may not exist
+yet -- handle gracefully):
 
 - `$SPECS_INDEX` -- contains an array of existing spec metadata entries
 - `$TASKS_INDEX` -- contains the global task index with epics and standalone tasks
@@ -150,7 +156,13 @@ If neither file exists, skip overlap analysis and proceed to Step 2.
 
 ### 1b. Scan for overlaps
 
-For each existing spec entry in the resolved specs index:
+**Linear backend**: for each issue returned in 1a, use its description (Summary/Scope
+sections) as the comparison text, plus `$SPECS_DIR/<id>-<slug>/spec.md` on disk if it
+already exists. Compare title, labels (as a proxy for tags/type), and description
+content against the new `REQUIREMENT`. For task-level overlap, check
+`$SPECS_DIR/<id>-<slug>/tasks/state.json` if present.
+
+**Local backend**: for each existing spec entry in the resolved specs index:
 
 - Read its `metadata.json` from `$SPECS_DIR/SPEC-NNN-slug/metadata.json`
 - Compare the `title`, `tags`, and `type` fields against the new `REQUIREMENT`
@@ -251,8 +263,14 @@ Use the approved plan from Step 0 as the foundation for the specification. The s
 
 Delegate number allocation to the **spec-allocation skill** (`skills/spec-allocation/`).
 It is the single source of the allocation protocol — do NOT reimplement the scan here.
+It resolves `$TM_BACKEND` itself and runs the matching flow:
 
-Run the skill's **Allocate** flow. It:
+**If `$TM_BACKEND=linear`**: it creates the Linear issue directly (title, team,
+`kind-spec` label) and returns its identifier (e.g. `HOS-12`) — Linear's own atomic
+issue creation is the collision lock, no scan/tag/engram involved. There is no
+"Activate" step to run afterward in this mode (see the skill's own notes).
+
+**If `$TM_BACKEND=local`** (default), it:
 
 1. Scans `index.json` + `git log --all` via `scripts/scan-spec-numbers.sh` (catches spec
    dirs created on never-merged branches — the strongest collision guard).
@@ -262,14 +280,16 @@ Run the skill's **Allocate** flow. It:
 3. Returns the zero-padded `SPEC-NNN` number and the directory path
    `<specs-dir>/SPEC-NNN-<slug>/` (resolved via `scripts/resolve-paths.sh`).
 
-Generate the slug from the title (lowercase, hyphens, max 50 chars). ONLY create the
-spec directory after the skill returns the number.
-
 > The skill may pause and ask for input if it finds a stale reservation (>14 days old)
 > in the registry — resume / abandon / skip. Surface that question to the user.
 
-On the first commit that touches the spec dir, run the skill's **Activate** flow to flip
-the reservation from `reserved` to `active`.
+Generate the slug from the title (lowercase, hyphens, max 50 chars). ONLY create the
+spec directory after the skill returns the identifier — in both modes the directory
+is `<specs-dir>/<identifier>-<slug>/` (`<identifier>` is `SPEC-NNN` locally or the
+Linear ID, e.g. `HOS-12`, in Linear mode).
+
+On the local backend, run the skill's **Activate** flow on the first commit that
+touches the spec dir, to flip the reservation from `reserved` to `active`.
 
 ### 3b. Enter Plan Mode
 
@@ -306,6 +326,18 @@ Plus an **Implementation Approach** section with phased task breakdown.
 Reference the template at `templates/spec-full.md` for the full structure.
 
 Fill in the template frontmatter:
+
+**Linear backend**:
+- `title`: the spec title
+- `linear`: the generated identifier (e.g. `HOS-12`)
+- `statusSource`: `linear`
+- `type`: one of `feature`, `fix`, `chore`
+- `areas`: the app/package areas touched (e.g. `web`, `admin`, `api`, `db`)
+- `created`: current ISO 8601 date
+
+No local `status` field — the issue's Linear state IS the status.
+
+**Local backend**:
 - `spec-id`: the generated SPEC-NNN
 - `type`: one of `feature`, `bugfix`, `refactor`, `improvement`, `infrastructure`, `documentation`
 - `complexity`: `medium` or `high`
@@ -354,6 +386,15 @@ After user approval:
 
 ### 4a. Create directory structure
 
+**Linear backend**:
+```
+<specs-dir>/<identifier>-slug/
+  spec.md   -- The specification document (frontmatter carries the metadata)
+```
+No `metadata.json` — Linear's issue fields + the spec.md frontmatter are the
+metadata store in this mode.
+
+**Local backend**:
 ```
 <specs-dir>/SPEC-NNN-slug/
   spec.md        -- The specification document
@@ -364,7 +405,7 @@ After user approval:
 
 Write the approved Plan Mode content as `spec.md`.
 
-### 4c. Write metadata.json
+### 4c. Write metadata.json (LOCAL BACKEND ONLY)
 
 Create `metadata.json` following the schema at `templates/metadata-schema.json`:
 
@@ -384,14 +425,19 @@ Create `metadata.json` following the schema at `templates/metadata-schema.json`:
 ```
 
 Tags should be derived from the spec content: affected components, technologies, domains.
+Skip this step entirely on the Linear backend.
 
-### 4d. Update specs index
+### 4d. Update the registry
 
-Create or update `$SPECS_INDEX` to include the new spec entry. If the file does not exist, create it as an array. Add an entry with `specId`, `title`, `type`, `complexity`, `status`, and `path`.
+Call the **`index-sync` skill** with `specId` (the identifier from 3a) and
+`newStatus: "approved"`. It resolves the backend itself: on Linear this updates the
+issue's state (maps to `Backlog`, a no-op if it was already Backlog since creation);
+on local it updates `$SPECS_INDEX` and, atomically, `tasks/index.json`. **Always use
+`index-sync` for this — NEVER write the registry directly.**
 
-**Always use the `index-sync` skill for this write** so that `tasks/index.json` is updated in the same atomic operation.  NEVER write one index alone.
-
-At this point `tasks/index.json` may not yet have an epic entry for this spec (that is created in Step 5c).  index-sync handles this gracefully — it will create the entry if it does not exist.
+On the local backend, at this point `tasks/index.json` may not yet have an epic
+entry for this spec (that is created in Step 5c) — index-sync handles this
+gracefully, creating the entry if it does not exist.
 
 ## Step 5: Generate Ultra-Granular Atomic Tasks
 
@@ -422,11 +468,17 @@ Resolve paths first (each bash block is its own shell, so re-run the resolver he
 eval "$(bash "${CLAUDE_PLUGIN_ROOT}/scripts/resolve-paths.sh")"
 ```
 
-Write the state to `$TASKS_DIR/SPEC-NNN-slug/state.json` following the state schema.
+**Linear backend**: `$TASKS_DIR` is empty by design (no global tasks tree) — write
+the state to `$SPECS_DIR/<identifier>-slug/tasks/state.json` instead (nested inside
+the spec's own folder, per `.specs/README.md`'s layout).
+
+**Local backend**: write the state to `$TASKS_DIR/SPEC-NNN-slug/state.json` following the state schema.
 
 ### 5b. Generate TODOs.md
 
-Generate `$TASKS_DIR/SPEC-NNN-slug/TODOs.md` as a human-readable markdown checklist grouped by phase:
+Generate `TODOs.md` next to `state.json` (`$SPECS_DIR/<identifier>-slug/tasks/TODOs.md`
+on Linear, `$TASKS_DIR/SPEC-NNN-slug/TODOs.md` on local) as a human-readable markdown
+checklist grouped by phase:
 
 ```markdown
 # TODOs: [Spec Title]
@@ -450,16 +502,17 @@ Spec: SPEC-NNN | Status: in-progress | Progress: 0/N
 - [ ] T-006: [Task title] (complexity: 2) [blocked by T-005]
 ```
 
-### 5c. Update task index
+### 5c. Update the registry with progress
 
-Update both `$TASKS_INDEX` **and** `$SPECS_INDEX` using the **index-sync skill**.  NEVER write one index alone.
+Use the **`index-sync` skill** (never write the registry directly) with:
+- `specId`: the identifier from 3a (`SPEC-NNN` locally, or the Linear ID, e.g. `HOS-12`)
+- `newStatus`: `"draft"` (on Linear this maps to `Backlog`; locally it's mirrored as
+  `"draft"` in tasks index — the mapping is identity except `approved`→`pending`)
+- `newProgress`: `"0/N"` where N is the total number of generated tasks (on Linear
+  this is recorded as an audit comment on the issue, per index-sync's Linear-mode
+  process — there's no structured progress field to write there)
 
-Use index-sync with:
-- `specId`: the newly generated SPEC-NNN
-- `newStatus`: `"draft"` (mirrored as `"draft"` in tasks index — the mapping is identity except `approved`→`pending`)
-- `newProgress`: `"0/N"` where N is the total number of generated tasks
-
-If the file does not exist, create it following the index schema at `templates/index-schema.json`:
+**Local backend only** — if `$TASKS_INDEX` does not exist, create it following the index schema at `templates/index-schema.json`:
 
 ```json
 {
@@ -499,12 +552,12 @@ Present a summary to the user:
 ```
 Specification created successfully!
 
-  Spec: SPEC-NNN "[Title]"
+  Spec: <identifier> "[Title]"       (SPEC-NNN locally, or HOS-12 etc. on Linear)
   Type: feature | Complexity: medium
-  Location: <specs-dir>/SPEC-NNN-slug/
+  Location: <specs-dir>/<identifier>-slug/
 
   Tasks generated: N tasks across M phases
-  Location: <tasks-dir>/SPEC-NNN-slug/
+  Location: <specs-dir>/<identifier>-slug/tasks/ (Linear) or <tasks-dir>/<identifier>-slug/ (local)
 
   Next step: Run /next-task to start working on the first available task.
   Remember: Update task state after completing each task!

@@ -19,12 +19,14 @@ You will receive:
 
 1. **Path to spec.md** - The specification document to generate tasks from
 2. **Path to metadata.json** - The spec metadata file in the same directory
+   (LOCAL BACKEND ONLY — on the Linear backend there is no metadata.json; the
+   same fields live in spec.md's own frontmatter, see Step 1)
 
 ## Process
 
 ### Step 1: Read Spec and Metadata
 
-Read both files from the provided paths.
+Read both files from the provided paths (or just spec.md on the Linear backend).
 
 From **spec.md**, extract:
 - **User stories and acceptance criteria** - Each "US-N" block with its Given/When/Then criteria
@@ -38,12 +40,18 @@ From **spec.md**, extract:
 - **UX considerations** - User flows, edge cases, error states (for spec-full template)
 - **Performance considerations** - Load expectations, bottlenecks (for spec-full template)
 
-From **metadata.json**, extract:
+**Local backend** — from **metadata.json**, extract:
 - `specId` - The spec ID (e.g., "SPEC-003")
 - `title` - The spec title
 - `complexity` - The overall complexity level
 - `type` - The work type (feature, bugfix, etc.)
 - `tags` - The categorization tags
+
+**Linear backend** — extract the same fields from **spec.md's own frontmatter**
+instead: `linear` (the identifier, e.g. `HOS-12`, used wherever `specId` is
+referenced below), `title`, `type`, `areas` (used wherever `tags` is referenced).
+There is no `complexity` field in the Linear frontmatter template — infer it from
+spec content the same way you would for a local `spec-lite`/`spec-full` spec.
 
 ### Step 2: Multi-Pass Task Decomposition
 
@@ -175,15 +183,18 @@ Create the state file. **All tasks in the state file MUST have complexity ≤ 3*
 eval "$(bash "${CLAUDE_PLUGIN_ROOT}/scripts/resolve-paths.sh")"
 ```
 
-Create the directory: `$TASKS_DIR/SPEC-NNN-slug/`
+**Linear backend**: create `$SPECS_DIR/<identifier>-slug/tasks/` (nested inside
+the spec's own folder — use the same slug the spec folder already has).
 
-Use the same slug from the spec directory name. If the spec directory is `SPEC-003-user-authentication`, the task directory is `$TASKS_DIR/SPEC-003-user-authentication/`.
+**Local backend**: create the directory `$TASKS_DIR/SPEC-NNN-slug/`, using the same
+slug from the spec directory name. If the spec directory is `SPEC-003-user-authentication`, the task directory is `$TASKS_DIR/SPEC-003-user-authentication/`.
 
 Write `state.json` to this directory.
 
 ### Step 6: Generate TODOs.md
 
-Create a human-readable task overview in `$TASKS_DIR/SPEC-NNN-slug/TODOs.md`:
+Create a human-readable task overview next to `state.json` (`$SPECS_DIR/<identifier>-slug/tasks/TODOs.md`
+on Linear, `$TASKS_DIR/SPEC-NNN-slug/TODOs.md` on local):
 
 ```markdown
 # SPEC-NNN: Spec Title
@@ -250,20 +261,25 @@ Level 3: T-005, T-006
 Begin with **T-001** (complexity: 2) - it has no dependencies and unblocks 2 other tasks.
 ```
 
-### Step 7: Update tasks/index.json
+### Step 7: Update the registry
 
-**Use the `index-sync` skill** to update BOTH `$TASKS_INDEX` and `$SPECS_INDEX` atomically.  NEVER write one index alone.
+**Use the `index-sync` skill** to update the registry (local: both indexes
+atomically; Linear: the issue's state + a progress comment) — it resolves
+`$TM_BACKEND` itself. NEVER write the registry directly.
 
 Call index-sync with:
-- `specId`: the spec ID (from metadata.json)
-- `newStatus`: the spec's **current** status read from `metadata.json` (do NOT hardcode).  The mapping is identity except `approved`→`pending`, so a `draft` spec yields a `draft` epic, an `approved` spec yields a `pending` epic, etc.  Passing the real spec status is what keeps the two indexes drift-free.
+- `specId`: the spec identifier (from metadata.json locally, or the `linear` frontmatter field on the Linear backend)
+- `newStatus`: the spec's **current** status — read from `metadata.json` locally (do NOT hardcode; the mapping is identity except `approved`→`pending`), or the Linear issue's current state on the Linear backend (`mcp__linear__get_issue`). Passing the real current status is what keeps the registry drift-free.
 - `newProgress`: `"0/N"` where N is the total number of generated tasks
 
-The index-sync skill will:
+On the local backend, index-sync will:
 1. Run pre-write validation (status enum, progress format, spec directory existence)
 2. Detect and report any pre-existing drift between the two indexes
 3. Write `tasks/index.json` with the new (or updated) epic entry
 4. Confirm the matching `specs/index.json` entry is consistent
+
+On the Linear backend, index-sync updates the issue directly (see its own
+Linear Backend Process) — there is no drift to detect since there's a single registry.
 
 Expected `tasks/index.json` epic entry after the write (this example assumes the spec was `approved`, which maps to `pending`; a `draft` spec would show `"status": "draft"`):
 
@@ -306,9 +322,9 @@ Tasks generated successfully from SPEC-003!
     No tasks require further splitting  ✓
 
   Files created:
-    <tasks-dir>/SPEC-003-user-authentication/state.json
-    <tasks-dir>/SPEC-003-user-authentication/TODOs.md
-    <tasks-dir>/index.json (updated)
+    <spec's tasks folder>/state.json
+    <spec's tasks folder>/TODOs.md
+    <tasks-dir>/index.json (updated, local backend only)
 
   Suggested first task:
     T-001 (complexity: 1) - Create authentication Zod schemas
@@ -367,10 +383,10 @@ The spec provides the acceptance criteria (SDD). Each acceptance criterion trans
 ## Error Handling
 
 - **Spec file not found**: Report the error and ask user to provide the correct path
-- **Metadata file not found**: Try to infer metadata from spec.md frontmatter, warn the user
+- **Metadata file not found**: on the local backend, try to infer metadata from spec.md frontmatter and warn the user; on the Linear backend this is expected (there is no metadata.json), just read the frontmatter directly per Step 1
 - **Empty spec**: Report that the spec has insufficient content and suggest reviewing it
 - **Circular dependencies detected**: Auto-fix using dependency-grapher suggestions and report what was changed
-- **The resolved tasks directory (`$TASKS_DIR`) doesn't exist**: Create it
+- **The resolved task directory doesn't exist** (`$TASKS_DIR` locally, or `$SPECS_DIR/<identifier>-slug/tasks` on Linear): Create it
 - **Re-generating tasks for existing spec**: Warn user that existing state.json will be overwritten, ask for confirmation
 
 ---
@@ -382,4 +398,4 @@ The spec provides the acceptance criteria (SDD). Each acceptance criterion trans
 - **Directories**: Create with `mkdir -p` and check with `[ -d "$DIR" ]`
 - **Errors**: ALWAYS suppress with `2>/dev/null` or `|| true` when files/dirs might not exist.
 - **No visible errors**: The user should NEVER see "Exit code" errors in the output.
-- **Index writes**: ALWAYS update both indexes via the `index-sync` skill (Step 7).  NEVER write one index alone.
+- **Index writes**: ALWAYS update the registry via the `index-sync` skill (Step 7).  NEVER write it directly.

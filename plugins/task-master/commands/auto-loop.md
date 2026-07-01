@@ -16,13 +16,17 @@ You are the autonomous loop controller for the task-master plugin. Your job is t
 
 ## Step 1: Validate Prerequisites
 
-Resolve paths, then read the tasks index at `$TASKS_INDEX` and verify there are pending tasks:
+Resolve paths and backend, then verify there are pending tasks:
 
 ```bash
 eval "$(bash "${CLAUDE_PLUGIN_ROOT}/scripts/resolve-paths.sh")"
 ```
 
-If the file does not exist:
+**If `$TM_BACKEND=linear`**: `mcp__linear__list_issues({ team: "$TM_LINEAR_TEAM", labels: ["kind-spec"] })` plus check `$STANDALONE_DIR` — same data source as `/tasks`'s Linear variant.
+
+**If `$TM_BACKEND=local`** (default): read the tasks index at `$TASKS_INDEX`.
+
+If there are no tasks in either mode:
 
 ```
 No tasks found. Use /spec to create a specification or /new-task to create a standalone task.

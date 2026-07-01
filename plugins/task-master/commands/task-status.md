@@ -28,19 +28,36 @@ Before accessing any files, resolve paths:
 eval "$(bash "${CLAUDE_PLUGIN_ROOT}/scripts/resolve-paths.sh")"
 ```
 
-### For a specific spec
+**If `$TM_BACKEND=linear`**: the "spec ID" argument is a Linear identifier (e.g.
+`HOS-12`).
+
+### For a specific spec (Linear)
+
+1. `ToolSearch` for `select:mcp__linear__get_issue`, then `mcp__linear__get_issue({ id: <specId> })`.
+   If not found, report: `Issue {ID} not found in Linear team $TM_LINEAR_TEAM.`
+2. Read `$SPECS_DIR/<specId>-<slug>/tasks/state.json` for that spec.
+
+### For all tasks (Linear)
+
+1. `mcp__linear__list_issues({ team: "$TM_LINEAR_TEAM", labels: ["kind-spec"] })`
+2. For each issue, read `$SPECS_DIR/<id>-<slug>/tasks/state.json` if present
+3. Read `$STANDALONE_DIR/state.json` if standalone tasks exist
+
+**If `$TM_BACKEND=local`** (default):
+
+### For a specific spec (local)
 
 1. Read the tasks index (`$TASKS_INDEX`) to find the epic entry matching the provided spec ID
 2. If the spec ID is not found, report: `Spec {ID} not found in task index. Available specs: [list]`
 3. Read `$TASKS_DIR/{path}/state.json` for the matching epic
 
-### For all tasks
+### For all tasks (local)
 
 1. Read the tasks index (`$TASKS_INDEX`)
 2. For each epic, read its `state.json`
-3. If standalone tasks exist, read `$TASKS_DIR/standalone/state.json`
+3. If standalone tasks exist, read `$STANDALONE_DIR/state.json`
 
-If `$TASKS_INDEX` does not exist:
+If `$TASKS_INDEX` does not exist (local backend):
 
 ```
 No tasks found. Use /spec to create a specification or /new-task to create a standalone task.

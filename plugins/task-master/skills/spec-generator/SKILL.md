@@ -114,14 +114,11 @@ Example conversion:
 
 ### Step 4: Generate Spec ID
 
-```bash
-eval "$(bash "${CLAUDE_PLUGIN_ROOT}/scripts/resolve-paths.sh")"
-```
-
-1. Read `$SPECS_INDEX` from the project root
-2. If the file does not exist, the first spec ID is `SPEC-001`
-3. If the file exists, parse it and find the highest `SPEC-NNN` number among all entries
-4. Increment by 1 and zero-pad to 3 digits: `SPEC-002`, `SPEC-003`, etc.
+Delegate to the **spec-allocation skill** — do not reimplement numbering here. It
+resolves `$TM_BACKEND` itself: on Linear it creates the issue directly and returns
+its identifier (e.g. `HOS-12`); on local it scans `$SPECS_INDEX` + git history and
+returns the next zero-padded `SPEC-NNN`. See `skills/spec-allocation/SKILL.md` for
+the full protocol.
 
 ### Step 5: Create Slug
 
@@ -139,11 +136,15 @@ Examples:
 
 ### Step 6: Create Spec Directory
 
-Create the directory: `$SPECS_DIR/SPEC-NNN-slug/`
+Create the directory: `$SPECS_DIR/<identifier>-slug/` (`<identifier>` is the
+value spec-allocation returned in Step 4 — `SPEC-NNN` locally, or the Linear ID
+on Linear).
 
 ### Step 7: Write spec.md
 
-Fill the template with extracted content. Replace template variables:
+Fill the template with extracted content.
+
+**Local backend** — replace template variables:
 
 | Variable | Value |
 |---|---|
@@ -153,11 +154,19 @@ Fill the template with extracted content. Replace template variables:
 | `{{DATE}}` | Current date-time in ISO 8601 format |
 | `{{TITLE}}` | Extracted title from the plan |
 
+**Linear backend** — use `.specs/_templates/spec.md`'s frontmatter shape instead
+(see `.specs/README.md` in the target repo if present): `title`, `linear: <identifier>`,
+`statusSource: linear`, `created`, `type` (one of `feature`, `fix`, `chore` — map
+`bugfix`→`fix`, `refactor`/`improvement`/`infrastructure`/`documentation`→`chore`
+unless the target repo's own template says otherwise), `areas` (app/package areas
+touched, replaces the local `tags` concept for frontmatter purposes — full tag
+detail can still live in the body).
+
 Replace all `[placeholder]` text in template sections with extracted content. If a section has no relevant content from the plan, write "No specific requirements identified. To be determined during implementation." rather than leaving the placeholder.
 
-Write the completed content to `$SPECS_DIR/SPEC-NNN-slug/spec.md`.
+Write the completed content to `$SPECS_DIR/<identifier>-slug/spec.md`.
 
-### Step 8: Write metadata.json
+### Step 8: Write metadata.json (LOCAL BACKEND ONLY)
 
 Create `$SPECS_DIR/SPEC-NNN-slug/metadata.json` with this structure:
 
@@ -222,16 +231,20 @@ Before writing `spec.md` to disk, re-read the entire generated spec content once
 
 Only proceed to Step 9 once all four gates pass or remaining gaps are explicitly documented as open questions.
 
-### Step 9: Update index.json
+### Step 9: Update the registry
 
-**Use the `index-sync` skill** to add the new spec entry to BOTH `$SPECS_INDEX` and `$TASKS_INDEX` atomically.  NEVER write one index alone.
+**Use the `index-sync` skill** to record the new spec — it resolves `$TM_BACKEND`
+itself (local: adds the entry to both indexes atomically; Linear: the issue was
+already created in Step 4, this call just sets its state). NEVER write the
+registry directly.
 
 Call index-sync with:
-- `specId`: the generated SPEC-NNN
-- `newStatus`: `"draft"`
+- `specId`: the identifier from Step 4 (SPEC-NNN locally, or the Linear ID on Linear)
+- `newStatus`: `"draft"` (maps to `Backlog` on Linear — likely a no-op there since
+  the issue was created with that state already, but keep the call for consistency)
 - `newProgress`: `null` (no tasks generated yet at this stage — `task-from-spec` will set progress in its Step 7)
 
-The index-sync skill will:
+On the local backend, index-sync will:
 1. Run pre-write validation (status enum check, spec directory existence check)
 2. Append the new entry to `specs/index.json` if it does not exist
 3. Append a corresponding `draft` entry to `tasks/index.json` if it does not exist (the mapping is identity except `approved`→`pending`, so a `draft` spec yields a `draft` epic)
@@ -259,8 +272,8 @@ Expected `specs/index.json` structure after the write:
 
 After completing all steps, report to the user:
 
-1. The path to the created spec directory (e.g., `<specs-dir>/SPEC-003-user-authentication/`)
-2. The spec ID assigned
+1. The path to the created spec directory (e.g., `<specs-dir>/SPEC-003-user-authentication/` locally, or `<specs-dir>/HOS-12-user-authentication/` on Linear)
+2. The spec identifier assigned
 3. The complexity level used
 4. The type inferred
 5. Number of user stories generated
@@ -309,4 +322,4 @@ Spec generated successfully!
 - **Directories**: Create with `mkdir -p` and check with `[ -d "$DIR" ]`
 - **Errors**: ALWAYS suppress with `2>/dev/null` or `|| true` when files/dirs might not exist.
 - **No visible errors**: The user should NEVER see "Exit code" errors in the output.
-- **Index writes**: ALWAYS update both indexes via the `index-sync` skill (Step 9).  NEVER write one index alone.
+- **Index writes**: ALWAYS update the registry via the `index-sync` skill (Step 9).  NEVER write it directly.

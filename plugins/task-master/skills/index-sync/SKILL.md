@@ -1,14 +1,83 @@
 ---
 name: index-sync
-description: Atomically updates both the specs index and the tasks index for a given spec, detects and repairs pre-existing drift between them, and enforces write invariants before any mutation
+description: Writes spec status/progress to the configured registry — atomically syncs the local specs+tasks indexes (repairing drift between them) on the local backend, or updates the Linear issue directly on the linear backend (see project.config.json taskMaster.backend)
 ---
 
 # Index Sync
 
 ## Purpose
 
-Ensure the specs index and the tasks index (resolved via `scripts/resolve-paths.sh`) remain consistent at all times.
-Every status/progress write to either index MUST go through this skill — never write one index alone.
+Ensure the spec registry stays consistent at all times. Every status/progress write
+to the registry MUST go through this skill.
+
+**First, resolve the backend**: `eval "$(bash "${CLAUDE_PLUGIN_ROOT}/scripts/resolve-paths.sh")"` and check `$TM_BACKEND`.
+
+- `TM_BACKEND=local` (default) → the registry is the two local JSON indexes. Follow
+  **Local Backend Process** below (Steps 0-6, unchanged).
+- `TM_BACKEND=linear` → the registry is Linear itself, there is nothing local to
+  keep in sync. Follow **Linear Backend Process** below instead — do NOT run the
+  local-backend steps, there is no `$SPECS_INDEX`/`$TASKS_INDEX` to read or write
+  in this mode (resolve-paths.sh emits them empty on purpose).
+
+## Linear Backend Process
+
+Applies when `$TM_BACKEND=linear`. In this mode `specId` (see Inputs) IS the
+Linear issue identifier already (e.g. `HOS-12`) — there is no separate local
+numbering to reconcile against.
+
+### L1. Load the Linear tool
+
+`ToolSearch` with query `select:mcp__linear__save_issue` (and `select:mcp__linear__save_comment`
+if `newProgress` is provided). These are MCP tools, not shell commands — no `jq`/`flock` involved.
+
+### L2. Map status to a Linear state name
+
+| Canonical status (either vocabulary) | Linear state |
+|---------------------------------------|--------------|
+| `draft`, `approved`, `pending`, `reserved` | `Backlog` |
+| `in-progress` | `In Progress` |
+| `completed`, `merged` | `Done` |
+| `cancelled`, `obsolete` | `Canceled` |
+
+If `newStatus` is `null`, skip the state update (progress-only call).
+
+### L3. Update the issue
+
+```
+mcp__linear__save_issue({ id: specId, state: "<mapped state>" })
+```
+
+Only pass `state` when `newStatus` was provided — omitting a param leaves it
+unchanged (this tool does partial updates, unlike the local jq rewrite).
+
+### L4. Record progress (optional)
+
+If `newProgress` is provided (format `N/M`, same validation as the local backend's
+0b check), add a lightweight audit comment instead of trying to fit it into a
+structured field Linear doesn't have for this:
+
+```
+mcp__linear__save_comment({ issue: specId, body: "Progress: <N>/<M> tasks completed" })
+```
+
+Skip this call if `newProgress` is empty/null — don't comment on every no-op call.
+
+### L5. Report
+
+```
+Index sync complete for <specId> (Linear backend)
+  Linear state: <new state>
+  [progress comment added: <N>/<M>]   (only if newProgress was provided)
+```
+
+There is no drift detection, no dual-index reconciliation, and no `flock` in this
+mode — Linear's own API is the single source of truth and its writes are already
+atomic per-issue.
+
+## Local Backend Process
+
+Applies when `$TM_BACKEND=local` (default, or when `taskMaster.backend` is unset).
+Everything below this point is unchanged from before Linear-backend support existed.
 
 ## Why Two Indexes Exist
 

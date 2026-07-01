@@ -15,13 +15,29 @@ You are the task dashboard renderer for the task-master plugin. Your job is to r
 
 ## Data Collection
 
-### Step 0: Drift Cross-Check (Run Before Any Rendering)
+First resolve the backend: `eval "$(bash "${CLAUDE_PLUGIN_ROOT}/scripts/resolve-paths.sh")"`.
+
+**If `$TM_BACKEND=linear`, skip Steps 0-1 below entirely** (they only make sense
+when there are two local indexes to compare/read) and instead:
+
+1. `ToolSearch` for `select:mcp__linear__list_issues` if not already loaded.
+2. `mcp__linear__list_issues({ team: "$TM_LINEAR_TEAM", labels: ["kind-spec"] })` —
+   this list IS the epics. There is no drift check to run: Linear is the single
+   registry, so there's nothing for it to disagree with. (A different kind of
+   consistency issue CAN still happen — a Linear issue whose `.specs/<id>-slug/`
+   folder was deleted or never created — but that's a filesystem/Linear mismatch,
+   not an index-vs-index drift; flag it inline per-epic in Step 2 below instead of
+   a separate pre-pass.)
+3. Then continue at **Step 2 (Linear variant)** below to read each epic's task
+   state, and **Step 3** for standalone tasks (unchanged, resolved via `$STANDALONE_DIR`).
+
+**If `$TM_BACKEND=local`** (default), continue with Steps 0-3 below, unchanged.
+
+### Step 0: Drift Cross-Check (Run Before Any Rendering, LOCAL BACKEND ONLY)
 
 Before reading epic state files, verify that the two indexes agree on every spec's status.  This catches drift that accumulated from previous sessions where one index was written without the other.
 
 ```bash
-eval "$(bash "${CLAUDE_PLUGIN_ROOT}/scripts/resolve-paths.sh")"
-
 # Only run the check when both files exist
 if [ -f "$SPECS_INDEX" ] && [ -f "$TASKS_INDEX" ]; then
   # For each specId present in tasks/index.json, compare its status against specs/index.json
@@ -65,7 +81,7 @@ Use the index-sync skill to repair.
 
 This is a read-only warning — the dashboard does NOT auto-repair drift.  It only surfaces it so the user can act.
 
-### Step 1: Read the global index
+### Step 1: Read the global index (LOCAL BACKEND ONLY)
 
 Read the tasks index (resolved via `scripts/resolve-paths.sh` as `$TASKS_INDEX`). This file follows the schema at `templates/index-schema.json` and contains:
 
@@ -80,13 +96,25 @@ No tasks found. Use /spec to create a specification or /new-task to create a sta
 
 And stop.
 
+On the Linear backend, "no tasks found" instead means the Step 0 (Linear variant)
+`list_issues` call returned zero epics AND `$STANDALONE_DIR` has no `state.json` —
+show the same message in that case.
+
 ### Step 2: Read epic state files
 
-For each epic in the `epics` array, read its `state.json` from `$TASKS_DIR/{path}/state.json`. Parse the tasks array and summary object.
+**Local backend**: for each epic in the `epics` array, read its `state.json` from `$TASKS_DIR/{path}/state.json`. Parse the tasks array and summary object.
+
+**Linear backend**: for each issue from Step 0, read `$SPECS_DIR/<id>-<slug>/tasks/state.json`
+(nested inside that spec's own folder — there is no parallel tasks tree in this
+mode). If the folder or `state.json` doesn't exist yet (issue created but spec.md
+work — or task atomization — hasn't happened), show it in the dashboard with
+`Progress: not atomized yet` instead of a progress bar, rather than erroring.
 
 ### Step 3: Read standalone state
 
-If `standalone.total > 0`, read `$TASKS_DIR/{standalone.path}/state.json` to get standalone task details.
+Read `$STANDALONE_DIR/state.json` (resolved via `scripts/resolve-paths.sh` — this
+path is the same shape in both backends) to get standalone task details, if it
+exists.
 
 ## Dashboard Rendering
 
