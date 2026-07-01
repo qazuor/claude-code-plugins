@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.4.1] - 2026-07-01
+
 ### Added
 
 - **task-master@qazuor** (v2.4.0) .. Linear backend for spec/task tracking
@@ -50,6 +52,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `spec-allocation/scripts/`) as sibling skills. `test-mcp-servers.sh` now
   validates the real server catalog (`mcp-catalog.json`) instead of the
   plugin's intentionally-empty `.mcp.json` stub.
+- **task-master@qazuor** .. bumped `2.4.0` → `2.4.1` with no other manifest
+  changes. The Linear-backend feature and the fixes above landed as commits
+  on top of the already-tagged `2.4.0`, so installed clients whose updater
+  compares semver (not commit SHA) never detected new content. This bump is
+  purely a cache-invalidation signal for `claude plugin update`.
 
 ## [2.1.0] - 2026-02-06
 
