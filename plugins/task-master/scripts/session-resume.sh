@@ -5,7 +5,6 @@
 
 set -euo pipefail
 
-PROJECT_ROOT="${CLAUDE_PROJECT_DIR:-.}"
 eval "$(bash "$(dirname "$0")/resolve-paths.sh")"
 INDEX_FILE="$TASKS_INDEX"
 
