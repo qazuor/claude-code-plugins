@@ -196,7 +196,7 @@ for hf in "$HOME/.claude/plugins/cache/thedotmack/claude-mem"/*/hooks/hooks.json
 done
 
 # Deduplicate
-HOOKS_FILES=($(printf '%s\n' "${HOOKS_FILES[@]}" | sort -u))
+mapfile -t HOOKS_FILES < <(printf '%s\n' "${HOOKS_FILES[@]}" | sort -u)
 
 if [ ${#HOOKS_FILES[@]} -eq 0 ]; then
     log "  No hooks.json found to patch. Skipping."
