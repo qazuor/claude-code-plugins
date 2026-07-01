@@ -18,17 +18,20 @@ PROJECT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 source "$SCRIPT_DIR/test-helpers.sh"
 
 PLUGIN_DIR="$PROJECT_ROOT/plugins/mcp-servers"
-MCP_FILE="$PLUGIN_DIR/.mcp.json"
+# mcp-catalog.json is the actual server catalog (synced into the user's
+# ~/.claude.json by mcp-sync.sh); the plugin's own .mcp.json is an
+# intentionally empty stub, never auto-loaded by Claude Code.
+MCP_FILE="$PLUGIN_DIR/mcp-catalog.json"
 
 # ============================================================================
-# .mcp.json Structure
+# mcp-catalog.json Structure
 # ============================================================================
-describe ".mcp.json Structure"
+describe "mcp-catalog.json Structure"
 
-it ".mcp.json exists"
+it "mcp-catalog.json exists"
 assert_file_exists "$MCP_FILE" "$CURRENT_TEST"
 
-it ".mcp.json is valid JSON"
+it "mcp-catalog.json is valid JSON"
 assert_json_valid "$MCP_FILE" "$CURRENT_TEST"
 
 it "Has mcpServers key"
