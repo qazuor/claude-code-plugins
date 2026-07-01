@@ -20,9 +20,13 @@ The user may provide an optional argument:
 - **Spec ID** (e.g., `SPEC-001`): re-plan tasks for that specific epic
 - **No argument**: ask which epic or standalone group to re-plan
 
-If no argument is provided:
+If no argument is provided, first resolve the backend: `eval "$(bash "${CLAUDE_PLUGIN_ROOT}/scripts/resolve-paths.sh")"`.
 
-1. Read the tasks index (resolved via `scripts/resolve-paths.sh` as `$TASKS_INDEX`)
+**If `$TM_BACKEND=linear`**: `mcp__linear__list_issues({ team: "$TM_LINEAR_TEAM", labels: ["kind-spec"] })` to list available epics, plus check `$STANDALONE_DIR` for the standalone group. Ask the user which one to re-plan (by Linear ID for a spec).
+
+**If `$TM_BACKEND=local`** (default):
+
+1. Read the tasks index (as `$TASKS_INDEX`)
 2. List available epics and standalone group
 3. Ask the user which one to re-plan
 
@@ -345,34 +349,44 @@ Rules for TODOs.md:
 - Show cancelled tasks in a separate section at the bottom with strikethrough
 - Include progress summary at the top
 
-### 3d. Update task index
+### 3d. Update the registry
 
-Use the **index-sync skill** to update both the tasks index and the specs index (resolved via `scripts/resolve-paths.sh`) atomically.  NEVER write one index alone.
+Use the **`index-sync` skill** to update the registry (local: both indexes
+atomically; Linear: the issue's state + a progress comment) — it resolves
+`$TM_BACKEND` itself. NEVER write the registry directly.
 
-Wrap the state.json write AND the index-sync call in a single `flock` block:
+Wrap the state.json write AND the index-sync call in a single `flock` block. On
+the local backend this locks `$LOCK` (the shared index lock); on Linear, since
+there's no shared index file, lock the state file itself instead:
 
 ```bash
 eval "$(bash "${CLAUDE_PLUGIN_ROOT}/scripts/resolve-paths.sh")"
+TASK_LOCK="${LOCK:-${STATE_FILE}.lock}"
 
 (
-  flock -w 10 200 || { echo "index busy, another session holds the lock — retry in a moment"; exit 1; }
+  flock -w 10 200 || { echo "state file busy, another session holds the lock — retry in a moment"; exit 1; }
 
   # Write the updated state.json first (inside the lock)
   jq ... "$STATE_FILE" > "${STATE_FILE}.tmp" && mv "${STATE_FILE}.tmp" "$STATE_FILE"
 
-  # Then call index-sync for both indexes (index-sync reuses the same lock file,
-  # so pass the already-acquired fd or call its jq writes directly here)
+  # Then call index-sync (local: reuses the same lock file, so pass the
+  # already-acquired fd or call its jq writes directly here; Linear: an MCP
+  # call, no locking concern on that side)
   # Provide: specId, newStatus (if status changed), newProgress ("completed/total")
 
-) 200>"$LOCK"
+) 200>"$TASK_LOCK"
 ```
 
 Inputs to index-sync:
-- `specId`: the spec being replanned
+- `specId`: the spec being replanned (SPEC-NNN locally, or the Linear ID on Linear)
 - `newStatus`: new epic status if it changed (e.g., tasks added that change `completed` → `in-progress`), or `null` if unchanged
 - `newProgress`: updated `"N/M"` string reflecting the new total after adds/cancels
 
-Standalone counts: if replanning the standalone group, update `standalone.total` and `standalone.completed` in `tasks/index.json` directly within the same `flock` block.
+Standalone counts: **local backend only** — if replanning the standalone group,
+update `standalone.total` and `standalone.completed` in `tasks/index.json` directly
+within the same `flock` block. On Linear, standalone counts live entirely inside
+`$STANDALONE_DIR/state.json`'s own `summary` object (recomputed in Step 3a) — there
+is no separate index to update.
 
 ### 3e. Show diff
 
@@ -403,9 +417,9 @@ Changes applied:
   SUMMARY AFTER:   11 tasks | 3 done | 1 wip | 4 pending | 3 blocked
 
   Files updated:
-    <tasks-dir>/SPEC-001-user-auth/state.json
-    <tasks-dir>/SPEC-001-user-auth/TODOs.md
-    <tasks-dir>/index.json
+    <spec's tasks folder>/state.json
+    <spec's tasks folder>/TODOs.md
+    <tasks-dir>/index.json                      (local backend only)
 ```
 
 ## Safety Rules
@@ -432,5 +446,5 @@ Changes applied:
 - **Directories**: Create with `mkdir -p` and check with `[ -d "$DIR" ]`
 - **Errors**: ALWAYS suppress with `2>/dev/null` or `|| true` when files/dirs might not exist.
 - **No visible errors**: The user should NEVER see "Exit code" errors in the output.
-- **Index writes**: ALWAYS update both indexes via the `index-sync` skill (Step 3d).  NEVER write one index alone.
-- **Locking**: ALL index/state mutations in Step 3 MUST happen inside a single `flock` block on `$LOCK` (resolved via `scripts/resolve-paths.sh`) with a 10-second timeout.  This prevents concurrent replan sessions from corrupting the indexes.
+- **Index writes**: ALWAYS update the registry via the `index-sync` skill (Step 3d).  NEVER write it directly.
+- **Locking**: ALL state mutations in Step 3 MUST happen inside a single `flock` block on `$TASK_LOCK` (`$LOCK` locally, or a per-state-file lock on Linear — see Step 3d) with a 10-second timeout.  This prevents concurrent replan sessions from corrupting state.

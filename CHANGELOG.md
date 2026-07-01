@@ -7,6 +7,34 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **task-master@qazuor** (v2.4.0) .. Linear backend for spec/task tracking
+  - New `taskMaster.backend` config in `.claude/project.config.json` — `"local"` (default,
+    unchanged behavior) or `"linear"`. When `"linear"`, `taskMaster.linear.team` /
+    `taskMaster.linear.teamKey` select which Linear team owns the spec registry.
+  - `resolve-paths.sh` now also resolves `TM_BACKEND`, `TM_LINEAR_TEAM`,
+    `TM_LINEAR_TEAM_KEY`, and a backend-agnostic `STANDALONE_DIR` for tasks with no
+    parent spec. On the Linear backend, `TASKS_DIR`/`SPECS_INDEX`/`TASKS_INDEX`/`LOCK`
+    resolve empty by design — there is no local dual-index to sync, Linear itself is
+    the registry.
+  - `index-sync`, `spec-allocation`, and `overlap-detector` skills branch on the
+    resolved backend: on Linear they read/write issues via the Linear MCP tools
+    instead of local JSON indexes. `spec-allocation`'s Linear-mode "allocation" is
+    just creating the issue directly — Linear's atomic issue creation is the
+    collision lock, no scan/git-tag/engram needed.
+  - `/spec`, `/tasks`, `/next-task`, `/replan`, `/new-task`, `/task-status`,
+    `/spec-realign`, `/spec-review`, `/auto-loop`, and the `quality-gate` /
+    `task-from-spec` / `spec-generator` skills all updated to resolve the backend
+    and branch accordingly. Per-spec task state on the Linear backend lives nested
+    at `<specs-dir>/<teamKey>-<n>-slug/tasks/` instead of a parallel `tasks/` tree.
+  - Local-backend behavior is 100% unchanged when `taskMaster.backend` is unset —
+    this is purely additive.
+  - **fix**: spec-allocation's number reservation now uses an atomic git-tag push
+    (pushing an existing tag fails server-side) instead of engram's last-writer-wins
+    upsert, which allowed two parallel agents to double-allocate the same `SPEC-NNN`
+    across worktrees.
+
 ### Fixed
 
 - **task-master@qazuor** .. `resolve-paths.sh` now honors `CLAUDE_PROJECT_DIR`

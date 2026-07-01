@@ -21,17 +21,21 @@ The user may provide an optional argument:
 - **Spec ID** (e.g., `SPEC-042`): analyze that specific spec
 - **No argument**: infer from context
 
-If no argument is provided, resolve paths first, then read the index:
+If no argument is provided, resolve paths (and backend) first:
 
 ```bash
 eval "$(bash "${CLAUDE_PLUGIN_ROOT}/scripts/resolve-paths.sh")"
 ```
 
+**If `$TM_BACKEND=linear`**: `mcp__linear__list_issues({ team: "$TM_LINEAR_TEAM", labels: ["kind-spec"], state: "In Progress" })`. If exactly one, use it; if ambiguous, list them and ask.
+
+**If `$TM_BACKEND=local`** (default):
+
 1. Read the tasks index at `$TASKS_INDEX`
 2. Check for any epic with status `"in-progress"` — if exactly one, use it
 3. If ambiguous (zero or multiple in-progress), list active epics and ask the user which one to realign
 
-If the index file does not exist:
+If there's nothing to realign in either mode:
 
 ```
 No tasks found. Use /spec to create a specification or /new-task to create a standalone task.
@@ -47,15 +51,23 @@ Before accessing any files, resolve paths:
 eval "$(bash "${CLAUDE_PLUGIN_ROOT}/scripts/resolve-paths.sh")"
 ```
 
-Resolve the spec directory: `$SPECS_DIR/SPEC-NNN-slug/`
+Resolve the spec directory: `$SPECS_DIR/<identifier>-slug/` (`SPEC-NNN` locally,
+or the Linear ID, e.g. `HOS-12`, on Linear).
 
 Read ALL of the following (handle missing files gracefully):
 
+**Local backend**:
 - `$SPECS_DIR/SPEC-NNN-slug/spec.md` — the full specification
 - `$SPECS_DIR/SPEC-NNN-slug/metadata.json` — spec metadata
 - `$TASKS_DIR/SPEC-NNN-slug/state.json` — task execution state
 - `$TASKS_DIR/SPEC-NNN-slug/TODOs.md` — task checklist (if present)
 - `$TASKS_INDEX` — global index for cross-spec context
+
+**Linear backend**:
+- `$SPECS_DIR/<id>-slug/spec.md` — the full specification (frontmatter carries the metadata otherwise in `metadata.json`)
+- `$SPECS_DIR/<id>-slug/tasks/state.json` — task execution state
+- `$SPECS_DIR/<id>-slug/tasks/TODOs.md` — task checklist (if present)
+- `mcp__linear__get_issue({ id: <identifier> })` — for cross-spec context (related issues, dependencies) instead of a global index
 
 Present a loading summary:
 
@@ -265,9 +277,11 @@ Recalculate the `summary` object:
 - `blocked`: tasks with status `"blocked"`
 - `averageComplexity`: average complexity of non-completed, non-cancelled tasks
 
-### 7b. Update task index
+### 7b. Update the registry
 
-In `$TASKS_INDEX`, update the epic's `progress` field to reflect the new counts.
+Use the **`index-sync` skill** with `newProgress` reflecting the new counts (never
+write the registry directly). On the local backend this updates the epic's
+`progress` field in `$TASKS_INDEX`; on Linear it adds a progress comment to the issue.
 
 ### 7c. Regenerate TODOs.md
 
@@ -284,10 +298,11 @@ Applied after approval:  N changes
 Skipped (user choice):   N changes
 
 Updated files:
-  <specs-dir>/SPEC-042-feature-title/spec.md       (revision history added)
-  <tasks-dir>/SPEC-042-feature-title/state.json    (N tasks updated)
-  <tasks-dir>/SPEC-042-feature-title/TODOs.md      (regenerated)
-  <tasks-dir>/index.json                            (progress updated)
+  <spec dir>/spec.md              (revision history added)
+  <spec's tasks folder>/state.json (N tasks updated)
+  <spec's tasks folder>/TODOs.md   (regenerated)
+  <tasks-dir>/index.json           (progress updated, local backend only —
+                                     Linear backend gets a progress comment instead)
 
 Remaining work: N tasks still pending (Bucket C items)
 New tasks added: N (Bucket D items approved)

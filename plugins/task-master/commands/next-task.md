@@ -19,7 +19,21 @@ You are the task selector for the task-master plugin. Your job is to find the ne
 eval "$(bash "${CLAUDE_PLUGIN_ROOT}/scripts/resolve-paths.sh")"
 ```
 
-Read the tasks index (`$TASKS_INDEX`) to get the list of all epics and standalone task info.
+**If `$TM_BACKEND=linear`**: `ToolSearch` for `select:mcp__linear__list_issues`, then
+`mcp__linear__list_issues({ team: "$TM_LINEAR_TEAM", labels: ["kind-spec"] })` for
+the epic list. For each returned issue, read `$SPECS_DIR/<id>-<slug>/tasks/state.json`
+if it exists (skip issues that have no `tasks/` yet — they haven't been atomized).
+Then read `$STANDALONE_DIR/state.json` if it exists.
+
+If Linear returns zero issues AND `$STANDALONE_DIR/state.json` doesn't exist:
+
+```
+No tasks found. Use /spec to create a specification or /new-task to create a standalone task.
+```
+
+And stop.
+
+**If `$TM_BACKEND=local`** (default): read the tasks index (`$TASKS_INDEX`) to get the list of all epics and standalone task info.
 
 If the file does not exist:
 
@@ -31,7 +45,7 @@ And stop.
 
 For each epic in the `epics` array, read `$TASKS_DIR/{path}/state.json`.
 
-If standalone tasks exist (`standalone.total > 0`), read `$TASKS_DIR/{standalone.path}/state.json`.
+If standalone tasks exist (`standalone.total > 0`), read `$STANDALONE_DIR/state.json`.
 
 ## Step 2: Compute Available Tasks
 
@@ -162,8 +176,16 @@ In the appropriate `state.json` file, wrap ALL reads and writes in a single `flo
 ```bash
 # Resolve $LOCK in this block (each bash block is its own shell).
 eval "$(bash "${CLAUDE_PLUGIN_ROOT}/scripts/resolve-paths.sh")"
+
+# $LOCK is a single global lock file — only meaningful on the local backend
+# (one shared tasks/index.json to guard). On the Linear backend it's empty
+# (resolve-paths.sh emits it that way on purpose): each spec's state.json lives
+# in its own folder with no shared index to race on, so lock on the state file
+# itself instead.
+TASK_LOCK="${LOCK:-${STATE_FILE}.lock}"
+
 (
-  flock -w 10 200 || { echo "index busy, another session holds the lock — retry in a moment"; exit 1; }
+  flock -w 10 200 || { echo "state file busy, another session holds the lock — retry in a moment"; exit 1; }
 
   # 1. Re-read state.json inside the lock to confirm task is still "pending"
   #    (another session may have claimed it between Step 2 and now)
@@ -185,21 +207,23 @@ eval "$(bash "${CLAUDE_PLUGIN_ROOT}/scripts/resolve-paths.sh")"
     .summary.inProgress += 1
   ' "$STATE_FILE" > "${STATE_FILE}.tmp" && mv "${STATE_FILE}.tmp" "$STATE_FILE"
 
-) 200>"$LOCK"
+) 200>"$TASK_LOCK"
 ```
 
 ### 4c. Update task index
 
-Use the **index-sync skill** to update both the specs index and the tasks index (resolved via `scripts/resolve-paths.sh`) atomically.  NEVER write one index alone.
+Use the **index-sync skill** to update the registry (local: both indexes atomically;
+Linear: the issue's state) — it resolves `$TM_BACKEND` itself.  NEVER write the
+registry directly.
 
-- For epic tasks: if the epic's current status is a not-yet-started state (`"pending"`, `"draft"`, or `"reserved"`), pass `newStatus: "in-progress"` to index-sync.  (Epics now mirror the spec status, so a freshly created epic is `"draft"`, not `"pending"` — starting its first task must move it to `"in-progress"` from any of these three states, or it would stay stuck.)
-- The index-sync skill wraps its writes in the same `flock` block — no double-locking needed.
-- For standalone tasks: no index status update needed (counts live in state.json), but still confirm the tasks/index.json standalone counts remain accurate.
+- For epic tasks: if the epic's current status is a not-yet-started state (`"pending"`, `"draft"`, or `"reserved"` locally; `Backlog`/`Triage` on Linear), pass `newStatus: "in-progress"` to index-sync.  (Epics now mirror the spec status, so a freshly created epic is `"draft"`, not `"pending"` — starting its first task must move it to `"in-progress"` from any of these states, or it would stay stuck.)
+- index-sync wraps its own writes appropriately per backend — no double-locking needed.
+- For standalone tasks: no registry status update needed (counts live in `$STANDALONE_DIR/state.json` in both backends).
 
 ```
 Call index-sync with:
-  specId:       <parent specId from index.json>
-  newStatus:    "in-progress"   (only if current epic status is "pending", "draft", or "reserved")
+  specId:       <parent specId — SPEC-NNN locally, or the Linear ID (e.g. HOS-12) on Linear>
+  newStatus:    "in-progress"   (only if current epic status is not already started)
   newProgress:  null            (progress is derived from state.json, not set here)
 ```
 
@@ -331,5 +355,5 @@ Remember: Task state has been updated.
 - **Directories**: Check existence: `[ -d "$DIR" ] && ls "$DIR" 2>/dev/null || echo "(none)"`
 - **Errors**: ALWAYS suppress with `2>/dev/null` or `|| true` when files/dirs might not exist.
 - **No visible errors**: The user should NEVER see "Exit code" errors in the output.
-- **Index writes**: ALWAYS update both indexes via the `index-sync` skill.  NEVER write one index alone.
-- **Locking**: ALL index/state mutations (Steps 4b and 4c) MUST happen inside a single `flock` block on `$LOCK` (resolved via `scripts/resolve-paths.sh`) with a 10-second timeout.  This prevents two parallel worktrees from claiming the same task simultaneously.
+- **Index writes**: ALWAYS update the registry via the `index-sync` skill.  NEVER write it directly.
+- **Locking**: ALL state mutations (Step 4b) MUST happen inside a single `flock` block on `$TASK_LOCK` (`$LOCK` on the local backend, or a per-state-file lock on Linear — see Step 4b) with a 10-second timeout.  This prevents two parallel worktrees from claiming the same task simultaneously.

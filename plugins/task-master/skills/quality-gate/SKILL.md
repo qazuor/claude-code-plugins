@@ -190,18 +190,19 @@ echo "$taskJson" | jq -e '
 
 ### Step 4: Record Results
 
-Wrap the state.json mutation in a `flock` block to prevent concurrent sessions from corrupting the file:
+Wrap the state.json mutation in a `flock` block to prevent concurrent sessions from corrupting the file. `$LOCK` is the shared index lock (local backend only) — on Linear there is no shared index, so lock the state file itself:
 
 ```bash
 eval "$(bash "${CLAUDE_PLUGIN_ROOT}/scripts/resolve-paths.sh")"
+TASK_LOCK="${LOCK:-${STATE_FILE}.lock}"
 
 (
-  flock -w 10 200 || { echo "index busy, another session holds the lock — retry in a moment"; exit 1; }
+  flock -w 10 200 || { echo "state file busy, another session holds the lock — retry in a moment"; exit 1; }
 
   # Write qualityGate results + status update inside the lock
   jq ... "$STATE_FILE" > "${STATE_FILE}.tmp" && mv "${STATE_FILE}.tmp" "$STATE_FILE"
 
-) 200>"$LOCK"
+) 200>"$TASK_LOCK"
 ```
 
 Update the task's `qualityGate` field in state.json:
@@ -291,22 +292,24 @@ After updating the task:
 1. Check if ALL tasks in the state.json are `completed`
 2. If yes:
    a. The epic/spec is fully complete
-   b. Read the spec's metadata.json
-   c. Update metadata status to `"completed"` and set `completed` timestamp
-   d. Use the **index-sync skill** to update BOTH `$SPECS_INDEX` AND `$TASKS_INDEX` atomically.  NEVER write one index alone.
-      - `specId`: the completed spec ID
+   b. **Local backend only**: read the spec's metadata.json and update its status to `"completed"` with a `completed` timestamp. Skip this on the Linear backend — there is no metadata.json, the Linear issue's state IS this field.
+   c. Use the **`index-sync` skill** to update the registry (local: both indexes atomically; Linear: the issue's state) — it resolves `$TM_BACKEND` itself. NEVER write the registry directly.
+      - `specId`: the completed spec (SPEC-NNN locally, or the Linear ID on Linear)
       - `newStatus`: `"completed"`
       - `newProgress`: `"N/N"` (all tasks done)
-   e. The index-sync call MUST happen inside the same `flock` block that wraps the metadata.json write:
+   d. The index-sync call MUST happen inside the same `flock` block that wraps the metadata.json write (local backend) or can run standalone as an MCP call (Linear backend, no local file lock needed):
       ```bash
       eval "$(bash "${CLAUDE_PLUGIN_ROOT}/scripts/resolve-paths.sh")"
-      (
-        flock -w 10 200 || { echo "index busy — retry"; exit 1; }
-        # write metadata.json here
-        # then call index-sync jq writes directly inside this block
-      ) 200>"$LOCK"
+      if [ "$TM_BACKEND" = "local" ]; then
+        (
+          flock -w 10 200 || { echo "index busy — retry"; exit 1; }
+          # write metadata.json here
+          # then call index-sync jq writes directly inside this block
+        ) 200>"$LOCK"
+      fi
+      # On Linear, call index-sync's MCP-based process here (no flock needed)
       ```
-   f. Report epic completion
+   e. Report epic completion
 
 ## Output
 
@@ -488,5 +491,5 @@ If no config file exists, the three standard checks (lint, typecheck, tests) are
 - **Errors**: ALWAYS suppress with `2>/dev/null` or `|| true` when files/dirs might not exist.
 - **No visible errors**: The user should NEVER see "Exit code" errors in the output.
 - **Pre-Write Validation**: Run invariant checks (Step 3.5) before EVERY state.json write.  ABORT on violation — never write bad data.
-- **Index writes**: ALWAYS update both indexes via the `index-sync` skill (Step 7).  NEVER write one index alone.
-- **Locking**: ALL index/state mutations (Steps 4 and 7) MUST happen inside a single `flock` block on `$LOCK` (resolved via `scripts/resolve-paths.sh`) with a 10-second timeout.  This prevents concurrent sessions from corrupting state.
+- **Index writes**: ALWAYS update the registry via the `index-sync` skill (Step 7).  NEVER write it directly.
+- **Locking**: ALL state mutations (Steps 4 and 7) MUST happen inside a single `flock` block on `$TASK_LOCK` (`$LOCK` locally, or a per-state-file lock on Linear) with a 10-second timeout.  This prevents concurrent sessions from corrupting state.

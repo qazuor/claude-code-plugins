@@ -27,14 +27,14 @@ Before accessing any files, resolve paths:
 eval "$(bash "${CLAUDE_PLUGIN_ROOT}/scripts/resolve-paths.sh")"
 ```
 
-1. Read the specs index (`$SPECS_INDEX`) to find the entry for `SPEC_ID`.
+1. **If `$TM_BACKEND=linear`**: `mcp__linear__get_issue({ id: SPEC_ID })` to confirm the identifier exists (`SPEC_ID` is a Linear ID like `HOS-12` in this mode). **If `$TM_BACKEND=local`** (default): read the specs index (`$SPECS_INDEX`) to find the entry for `SPEC_ID`.
 2. Derive the spec directory: `$SPECS_DIR/<SPEC_ID>-<slug>/`
 3. Read `spec.md` from that directory. If the file does not exist:
    ```
    ERROR: No spec.md found for SPEC_ID at expected path.
-   Check the resolved specs index for the correct path.
+   Check the resolved specs index (local) or Linear (linear) for the correct path.
    ```
-4. Read `metadata.json` from the same directory (handle gracefully if missing).
+4. **Local backend only**: read `metadata.json` from the same directory (handle gracefully if missing). On Linear, the same fields live in spec.md's own frontmatter — no separate file to read.
 5. Store the original spec content. All subsequent passes mutate a working copy; the original is preserved for diff generation.
 
 ## Step 1: Initial Assessment
@@ -214,7 +214,7 @@ Append or update a `## Revision History` section at the end of `spec.md`. Each e
 
 Write the finalized working copy back to `$SPECS_DIR/<SPEC_ID>-<slug>/spec.md`.
 
-### 4c. Update metadata.json
+### 4c. Update metadata.json (LOCAL BACKEND ONLY)
 
 Update the `updated` timestamp in `metadata.json`:
 
@@ -226,6 +226,10 @@ Update the `updated` timestamp in `metadata.json`:
 ```
 
 If `reviewPasses` does not exist in the schema yet, add it.
+
+On the Linear backend, skip this — there is no metadata.json; the review's
+outcome is already captured in the spec.md Revision History (Step 4a/4b) and,
+if it changed scope meaningfully, worth a short comment on the Linear issue.
 
 ## Step 5: Report
 

@@ -59,7 +59,8 @@ Create this task? (yes/edit/cancel)
 eval "$(bash "${CLAUDE_PLUGIN_ROOT}/scripts/resolve-paths.sh")"
 ```
 
-Read `$TASKS_DIR/standalone/state.json` if it exists.
+Read `$STANDALONE_DIR/state.json` if it exists (this path resolves the same way in
+both backends — `$TASKS_DIR/standalone` locally, `$SPECS_DIR/_standalone` on Linear).
 
 If the file exists, find the highest task ID number among all existing tasks in the `tasks` array. The new task ID will be `T-NNN` where NNN is the next number, zero-padded to 3 digits.
 
@@ -67,7 +68,14 @@ If the file does not exist, the first task ID will be `T-001`.
 
 ### 2b. Also check epic tasks for global uniqueness
 
-Read `$TASKS_INDEX` if it exists. For each epic, read its `state.json` and find the highest task ID across all epics. The new standalone task ID must be higher than ANY existing task ID across the entire system to ensure global uniqueness.
+**Local backend**: read `$TASKS_INDEX` if it exists. For each epic, read its `state.json` and find the highest task ID across all epics.
+
+**Linear backend**: there is no global epics index — glob every per-spec task file
+instead: `find "$SPECS_DIR" -mindepth 3 -maxdepth 3 -path '*/tasks/state.json'` and
+read each one.
+
+In both backends, the new standalone task ID must be higher than ANY existing task
+ID across the entire system to ensure global uniqueness.
 
 Example: if SPEC-001 has tasks T-001 through T-010, and standalone has T-011, the next standalone task should be T-012.
 
@@ -75,11 +83,11 @@ Example: if SPEC-001 has tasks T-001 through T-010, and standalone has T-011, th
 
 ### 3a. Ensure directory exists
 
-The standalone tasks live in `$TASKS_DIR/standalone/`. Create this directory if it does not exist.
+The standalone tasks live in `$STANDALONE_DIR`. Create this directory if it does not exist.
 
 ### 3b. Initialize or update state.json
 
-If `$TASKS_DIR/standalone/state.json` does not exist, create it:
+If `$STANDALONE_DIR/state.json` does not exist, create it:
 
 ```json
 {
@@ -141,7 +149,7 @@ Recalculate the `summary` object:
 - `blocked`: count of tasks with status `"blocked"`
 - `averageComplexity`: average of `complexity` across all non-completed, non-cancelled tasks (or 0 if none)
 
-## Step 4: Update Global Index
+## Step 4: Update Global Index (LOCAL BACKEND ONLY)
 
 Read `$TASKS_INDEX`. If it does not exist, create it:
 
@@ -164,9 +172,13 @@ Update the `standalone` object:
 
 Write the updated index back to `$TASKS_INDEX`.
 
+On the Linear backend, skip this step — `$STANDALONE_DIR/state.json`'s own
+`summary` object (Step 3d) is the only place these counts live; there is no
+separate global index to mirror them into.
+
 ## Step 5: Generate/Update TODOs.md
 
-Create or update `$TASKS_DIR/standalone/TODOs.md` with all standalone tasks grouped by phase:
+Create or update `$STANDALONE_DIR/TODOs.md` with all standalone tasks grouped by phase:
 
 ```markdown
 # Standalone Tasks
@@ -219,8 +231,8 @@ Task created successfully!
   Phase:       core
   Status:      pending
 
-  Location:    <tasks-dir>/standalone/state.json
-  TODOs:       <tasks-dir>/standalone/TODOs.md
+  Location:    <standalone-dir>/state.json
+  TODOs:       <standalone-dir>/TODOs.md
 
   Run /next-task to start working on it, or /tasks to see the full dashboard.
 ```

@@ -23,9 +23,18 @@ You will receive:
 
 ### Step 1: Load Existing Data
 
-```bash
-eval "$(bash "${CLAUDE_PLUGIN_ROOT}/scripts/resolve-paths.sh")"
-```
+First resolve the backend: `eval "$(bash "${CLAUDE_PLUGIN_ROOT}/scripts/resolve-paths.sh")"` and check `$TM_BACKEND`.
+
+**If `TM_BACKEND=linear`:**
+
+1. `ToolSearch` with query `select:mcp__linear__list_issues` if not already loaded.
+2. `mcp__linear__list_issues({ team: "$TM_LINEAR_TEAM", labels: ["kind-spec", "kind-needs-spec"] })` — this
+   IS the specs registry in this mode, no local index to read.
+   - If it returns zero issues, report "No existing specs found in Linear team $TM_LINEAR_TEAM. Clean slate -- no overlaps possible." and exit early.
+3. Task-level detail (Step 6) comes from each candidate's own `$SPECS_DIR/<id>-<slug>/tasks/state.json`
+   on disk, if it exists — there is no global tasks index to read in this mode.
+
+**If `TM_BACKEND=local` (default):**
 
 1. Read `$SPECS_INDEX` from the project root
    - If the file does not exist, report "No existing specs found. Clean slate -- no overlaps possible." and exit early
@@ -33,7 +42,12 @@ eval "$(bash "${CLAUDE_PLUGIN_ROOT}/scripts/resolve-paths.sh")"
 
 ### Step 2: Filter Active Specs
 
-From the specs index, filter to only consider specs with active statuses:
+**Linear backend**: filter the issues from Step 1 by state — include everything
+whose `statusType` is NOT `completed`, `canceled`, or `duplicate` (i.e. keep
+`backlog`, `unstarted`/`Triage`, `started`/`In Progress`). If every issue is
+closed, report "All existing specs in Linear are closed. No active overlap possible." and list them for reference.
+
+**Local backend**: from the specs index, filter to only consider specs with active statuses:
 - Include: `draft`, `approved`, `in-progress`, `reserved`
 - Exclude: `completed`, `cancelled`, `merged`, `obsolete`
 
@@ -45,7 +59,12 @@ For each active spec:
 
 #### 3a: Read Spec Content
 
-Read the spec's `spec.md` and `metadata.json` from the path listed in the index.
+**Linear backend**: use the Linear issue's own description (Summary/Scope/Related
+specs sections) as the primary text, plus `$SPECS_DIR/<id>-<slug>/spec.md` on disk
+if that folder already exists (it may not yet for a bare `kind-needs-spec` idea
+that never got a full spec written).
+
+**Local backend**: read the spec's `spec.md` and `metadata.json` from the path listed in the index.
 
 #### 3b: Extract Comparison Points
 
@@ -129,7 +148,11 @@ For each overlap found, provide a recommendation:
 
 ### Step 6: Check Task-Level Overlap (Optional)
 
-If `$TASKS_INDEX` exists, also check for overlap at the task level:
+**Linear backend**: for each active issue from Step 2, check whether
+`$SPECS_DIR/<id>-<slug>/tasks/state.json` exists on disk; if so, read it the same
+way the local backend reads an epic's `state.json` below.
+
+**Local backend**: if `$TASKS_INDEX` exists, also check for overlap at the task level:
 
 1. For each epic in the tasks index with status != "completed":
    - Read its `state.json`
