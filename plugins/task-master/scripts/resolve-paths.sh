@@ -25,7 +25,9 @@
 #   source path/to/resolve-paths.sh              # to set vars in the current shell
 set -uo pipefail
 
-ROOT="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
+# CLAUDE_PROJECT_DIR (set by Claude Code hooks) takes precedence over git
+# discovery: hooks can run with a cwd that isn't the project root.
+ROOT="${CLAUDE_PROJECT_DIR:-$(git rev-parse --show-toplevel 2>/dev/null || pwd)}"
 CFG="$ROOT/.claude/project.config.json"
 
 TM_BASE=".claude"

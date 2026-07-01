@@ -148,6 +148,10 @@ describe "Skill Format"
 
 while IFS= read -r dir; do
     [[ -d "$dir" ]] || continue
+    # Only direct children of a "skills" dir are skills — a skill may itself
+    # contain implementation subdirectories (e.g. scripts/) that must not be
+    # mistaken for sibling skills.
+    [[ "$(basename "$(dirname "$dir")")" == "skills" ]] || continue
     skill_name=$(basename "$dir")
     relative_path="${dir#"$PROJECT_ROOT/plugins/"}"
     plugin_name="${relative_path%%/*}"
@@ -160,7 +164,7 @@ while IFS= read -r dir; do
         first_line=$(head -n 1 "$dir/SKILL.md")
         assert_equals "---" "$first_line" "$CURRENT_TEST"
     fi
-done < <(find "$PROJECT_ROOT/plugins" -path "*/skills/*" -maxdepth 4 -mindepth 4 -type d 2>/dev/null)
+done < <(find "$PROJECT_ROOT/plugins" -path "*/skills/*" -type d 2>/dev/null)
 
 # ============================================================================
 # Agent Format

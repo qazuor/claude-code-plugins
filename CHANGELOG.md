@@ -5,6 +5,24 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Fixed
+
+- **task-master@qazuor** .. `resolve-paths.sh` now honors `CLAUDE_PROJECT_DIR`
+  (falling back to `git rev-parse --show-toplevel`) instead of always
+  resolving from cwd, fixing `session-resume.sh` reading the wrong project's
+  task index when invoked with a different working directory. Removed the
+  resulting dead `PROJECT_ROOT` variable in `session-resume.sh`.
+- **claude-mem-patches@qazuor** .. `apply-patches.sh` deduplicates
+  `HOOKS_FILES` via `mapfile` instead of unquoted command substitution into
+  an array (ShellCheck SC2207).
+- **CI test suite** .. `test-structure.sh`'s skill-format check no longer
+  misidentifies a skill's own implementation subdirectories (e.g.
+  `spec-allocation/scripts/`) as sibling skills. `test-mcp-servers.sh` now
+  validates the real server catalog (`mcp-catalog.json`) instead of the
+  plugin's intentionally-empty `.mcp.json` stub.
+
 ## [2.1.0] - 2026-02-06
 
 Autonomous loop, guardrails system, and project setup orchestration.
