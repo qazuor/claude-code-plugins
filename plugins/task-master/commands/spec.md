@@ -266,9 +266,12 @@ It is the single source of the allocation protocol — do NOT reimplement the sc
 It resolves `$TM_BACKEND` itself and runs the matching flow:
 
 **If `$TM_BACKEND=linear`**: it creates the Linear issue directly (title, team,
-`kind-spec` label) and returns its identifier (e.g. `HOS-12`) — Linear's own atomic
+`kind-needs-spec` label — NOT `kind-spec` yet, since `spec.md` doesn't exist until
+Step 4 below) and returns its identifier (e.g. `HOS-12`) — Linear's own atomic
 issue creation is the collision lock, no scan/tag/engram involved. There is no
-"Activate" step to run afterward in this mode (see the skill's own notes).
+"Activate" step to run afterward in this mode (see the skill's own notes). The
+label is promoted to `kind-spec` in Step 4, once `spec.md` is actually published
+(see Step 4e) — never at this step.
 
 **If `$TM_BACKEND=local`** (default), it:
 
@@ -438,6 +441,14 @@ on local it updates `$SPECS_INDEX` and, atomically, `tasks/index.json`. **Always
 On the local backend, at this point `tasks/index.json` may not yet have an epic
 entry for this spec (that is created in Step 5c) — index-sync handles this
 gracefully, creating the entry if it does not exist.
+
+### 4e. Promote the label to `kind-spec` (Linear backend only)
+
+`spec.md` now exists on disk (Step 4b) and the registry reflects it (Step 4d) —
+this is the point where the issue stops being a bare idea and becomes a tracked
+spec. Invoke the **spec-allocation** skill's **Flow 1b** with `specId` (from
+Step 3a) to swap the issue's label from `kind-needs-spec` to `kind-spec`. Skip
+this step entirely on the local backend (no Linear labels to update).
 
 ## Step 5: Generate Ultra-Granular Atomic Tasks
 

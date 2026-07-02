@@ -51,8 +51,8 @@ Never invent config silently; if a value is missing, use the default.
 - `title` — the spec title (human-readable).
 - `slug` — URL-friendly form of the title (lowercase, hyphens, max 50 chars). The
   caller derives it from `title` and passes it in.
-- `labels` — optional extra labels beyond `kind-spec` (e.g. area-* labels the
-  caller has already inferred from the request).
+- `labels` — optional extra labels beyond `kind-needs-spec` (e.g. area-* labels
+  the caller has already inferred from the request).
 
 ### Steps
 
@@ -62,9 +62,14 @@ Never invent config silently; if a value is missing, use the default.
    mcp__linear__save_issue({
      title: "Implement spec: <title>",
      team: "$TM_LINEAR_TEAM",
-     labels: ["kind-spec", ...extra labels]
+     labels: ["kind-needs-spec", ...extra labels]
    })
    ```
+   Label it `kind-needs-spec`, NOT `kind-spec`, at this point — `spec.md` does not
+   exist yet (it's written later, in the caller's own Step 3b/4b, after Plan Mode
+   drafting and user approval). Applying `kind-spec` here mislabels the issue the
+   moment it's created, which is exactly what happened to HOS-68/69/70. See Flow 1b
+   below for the relabel once `spec.md` is actually published.
 3. The response's `id` field (e.g. `"HOS-12"`) IS the allocated identifier. Linear's
    issue creation is already server-side atomic — there is no scan, no git tag, and
    no engram cross-check to do here. This mirrors exactly why the local backend
@@ -85,7 +90,36 @@ On the Linear backend, every status change (reserved→active, active→complete
 etc.) is just a normal spec-lifecycle event — call the `index-sync` skill, which
 branches to its own Linear-mode process and updates the issue's state directly.
 There is no separate allocation-registry bookkeeping to maintain, because Linear
-already IS that registry.
+already IS that registry. The one exception is the `kind-needs-spec`→`kind-spec`
+label promotion, which `index-sync` does not do (it only writes status/progress,
+never labels) — that's Flow 1b below.
+
+## Flow 1b (Linear) — Promote to `kind-spec` once `spec.md` exists
+
+Call this AFTER the caller has actually written and published `spec.md` (e.g.
+`commands/spec.md` Step 4, once the directory + file exist on disk) — never at
+allocation time. `kind-needs-spec` is correct until that point; relabeling early
+re-introduces the exact bug this flow exists to prevent.
+
+### Inputs
+
+- `specId` — the Linear identifier returned by Flow 1 (e.g. `HOS-12`).
+
+### Steps
+
+1. `ToolSearch` with query `select:mcp__linear__get_issue,mcp__linear__save_issue`
+   if not already loaded.
+2. Read the issue's current labels: `mcp__linear__get_issue({ id: specId })` →
+   `labels`.
+3. Compute the new label set: drop `kind-needs-spec`, add `kind-spec`, keep every
+   other existing label untouched (e.g. `area-*`/`source-*`). `labels` on
+   `save_issue` is a full replace, not append-only — always pass the complete
+   computed set, never just `["kind-spec"]`.
+4. `mcp__linear__save_issue({ id: specId, labels: <computed set> })`.
+
+If `kind-needs-spec` isn't present in the current label set, skip silently (log
+it, don't abort the caller) — the issue was already promoted or created with
+`kind-spec` some other way; nothing to do.
 
 ## Flow 1 (Local) — Allocate via git+index scan
 
