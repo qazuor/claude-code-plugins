@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.4.2] - 2026-07-02
+
+### Fixed
+
+- **task-master@qazuor** (v2.4.1) .. Linear backend created new specs with the
+  `kind-spec` label at issue-creation time, before `spec.md` existed — mislabeling
+  every new spec until it was actually drafted. `spec-allocation` skill's Flow 1
+  now creates with `kind-needs-spec` instead; a new Flow 1b promotes the label to
+  `kind-spec` once `spec.md` is written and published (`/task-master:spec` Step 4e).
+  Pure cache-invalidation bump for `claude plugin update` — no other manifest
+  changes.
+
 ## [2.4.1] - 2026-07-01
 
 ### Added
